@@ -1394,7 +1394,7 @@ define(["orion/Deferred", "orion/EventTarget", "orion/URL-shim"], function(Defer
             var deferreds = [];
             _plugins.forEach(function(plugin) {
                 var autostart = plugin._getAutostart();
-                if ("started" === autostart) {
+                if ("started" === autostart || "active" === autostart) {
                     deferreds.push(plugin.start({
                         "transient": true
                     }));
