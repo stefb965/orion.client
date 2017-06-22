@@ -1351,15 +1351,15 @@ define(["orion/Deferred", "orion/EventTarget", "orion/URL-shim"], function(Defer
             }
 
             if (configuration.plugins) {
-                Object.keys(configuration.plugins).forEach(function(url) {
-		            url = _normalizeURL(url);
+                Object.keys(configuration.plugins).forEach(function(key) {
+		            var url = _normalizeURL(key);
 		            //                    if (!httpOrHttps.test(url)) {
 		            //                        console.log("Illegal Plugin URL: " + url);
 		            //                        return;
 		            //                    }
 		            var plugin = this.getPlugin(url);
 		            if (!plugin) {
-		                var manifest = configuration.plugins[url];
+		                var manifest = configuration.plugins[key];
 		                if (typeof manifest !== "object") {
 		                	manifest = internalRegistry.getPersisted(url) || {};
 		                }
