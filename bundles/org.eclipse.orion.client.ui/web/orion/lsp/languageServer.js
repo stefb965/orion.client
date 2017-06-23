@@ -128,6 +128,21 @@ define([
 			return this.ipc.TEXT_DOCUMENT_SYNC_KIND.None;
 		},
 
+		/**
+		 * Returns whether the content of the saved document should be included in a
+		 * 'textDocument/didSave' notification to the server.
+		 * 
+		 * @return {boolean} true if the document's text content should be included
+		 *                   with the 'textDocument/didSave' notification to the
+		 *                   server, false otherwise
+		 */
+		includeTextOnSave: function() {
+			if (this.capabilities && this.capabilities.textDocumentSync && this.capabilities.textDocumentSync.save) {
+				return this.capabilities.textDocumentSync.save.includeText === true;
+			}
+			return false;
+		},
+
 		isDefinitionEnabled: function() {
 			return this.capabilities && this.capabilities.definitionProvider;
 		},

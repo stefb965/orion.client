@@ -607,11 +607,6 @@ define([
 				if(textView && textView.onSaving) {
 					textView.onSaving({type:evnt.type});
 				}
-				// get the lsp service matching the current content type
-				var lspLanguageServer = languageServerRegistry.getServerByContentType(inputManager.getContentType());
-				if (lspLanguageServer) {
-					lspLanguageServer.didSave(evnt.inputManager.getFileMetadata().Location);
-				}
 			});
 
 			this.blamer = new mBlamer.Blamer(serviceRegistry, inputManager, editor);

@@ -360,12 +360,14 @@ define([], function() {
 	 * @description The document save notification is sent from the client to the server when the document was saved in the client.
 	 * @function
 	 * @param {String} uri The URI of the file
+	 * @param {String} [text] the text content of the saved document
 	 */
-	IPC.prototype.didSave = function didSave(uri) {
+	IPC.prototype.didSave = function didSave(uri, text) {
 		return this.sendMessage(0, this.MESSAGE_TYPES.didSave, {
 			textDocument: {
 				uri: uri,
-			}
+			},
+			text: text
 		});
 	};
 
