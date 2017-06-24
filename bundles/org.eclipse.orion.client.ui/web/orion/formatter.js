@@ -70,11 +70,16 @@ define ([
 			// check lsp formatters
 			var lspFormatter = this.getLspFormatter();
 			if (lspFormatter) {
+				var textView = this.editor.getTextView();
+				var options = {
+					tabSize: textView.getOptions("tabSize"),
+					insertSpaces: textView.getOptions("expandTab")
+				};
 				if (selection.start !== selection.end) {
 					// we want to format the selected text only
 					var start = Utils.getPosition(this.editor, selection.start);
 					var end = Utils.getPosition(this.editor, selection.end);
-					return lspFormatter.rangeFormatting(this.inputManager.getFileMetadata().Location, start, end, {}).then(
+					return lspFormatter.rangeFormatting(this.inputManager.getFileMetadata().Location, start, end, options).then(
 						function(edits) {
 							console.log("Range format action invoked");
 							if (Array.isArray(edits) && edits.length !== 0) {
@@ -94,7 +99,7 @@ define ([
 							}
 						}.bind(this));
 				}
-				return lspFormatter.formatDocument(this.inputManager.getFileMetadata().Location, {}).then(
+				return lspFormatter.formatDocument(this.inputManager.getFileMetadata().Location, options).then(
 					function(edits) {
 						console.log("Format action invoked");
 						if (Array.isArray(edits) && edits.length !== 0) {
