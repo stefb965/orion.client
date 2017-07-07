@@ -107,9 +107,17 @@ exports.install = function(options) {
 			}
 			resolvePath(req, userWorkspaceDir, cwd, function(realCWD) {
 				var buff = [];
+					if (cwd.indexOf('/file') === 0) {
+					realCWD = userWorkspaceDir;
+				} else {
+					var fileIndex = cwd.indexOf('/file');
+					realCWD = fileUtil.safeFilePath(workspaceDir, cwd.substr(fileIndex + 5, cwd.indexOf('/', fileIndex + 1) - fileIndex));
+				}
+				try { if (!require('fs').statSync(realCWD).isDirectory()) { realCWD = fileUtil.safeFilePath(workspaceDir, req.user.workspace); } } catch(ex) { realCWD = fileUtil.safeFilePath(workspaceDir, req.user.workspace); }
+				
 				// Open Terminal Connection
 				var shell = process.platform === 'win32' ? 'powershell.exe' : (process.env.SHELL || 'sh');
-				var terminal = pty.spawn(shell, [], {
+				var terminal = pty.spawn(shell, ['--norc'], {
 					name: require('fs').existsSync('/usr/share/terminfo/x/xterm-256color')
 					? 'xterm-256color'
 					: 'xterm',

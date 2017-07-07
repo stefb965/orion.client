@@ -44,8 +44,8 @@ define([
 			if (newRows === rows && newCols !== cols) return;
 			rows = newRows;
 			cols = newCols;
-			term.resize(Math.floor(newCols), Math.floor(newRows));
-			socket.emit('resize', Math.floor(newCols), Math.floor(newRows));
+			term.resize(Math.floor(newCols), Math.floor(newRows - 1 ));
+			socket.emit('resize', Math.floor(newCols), Math.floor(newRows - 1 ));
 		};
 
 		var socketioPath = location.pathname.substr(0, location.pathname.indexOf('tty')) + 'socket.io/';

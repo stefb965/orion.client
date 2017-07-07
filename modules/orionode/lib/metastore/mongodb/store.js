@@ -18,6 +18,7 @@ var expressSession = require('express-session'),
 	args = require('../../args'),
 	passport = require('passport'),
 	log4js = require('log4js'),
+	mkdirp = require('mkdirp'),
 	logger = log4js.getLogger("mongo-store");
 
 mongoose.Promise = Promise;
@@ -122,7 +123,28 @@ var SEPARATOR = "-";
 
 function MongoDbMetastore(options) {
 	this.options = options;
-	mongoose.connect('mongodb://localhost/orion_multitenant');
+//	var cfenv = require('cfenv');
+//	var appenv = cfenv.getAppEnv();
+//	var services = appenv.services;
+//	var mongodb_services = services["compose-for-mongodb"];
+//	if (mongodb_services) {
+//		var credentials = mongodb_services[0].credentials;
+//		var ca = [new Buffer(credentials.ca_certificate_base64, 'base64')];
+//		mongoose.connect(credentials.uri, {
+//			mongos: {
+//				ssl: true,
+//				sslValidate: true,
+//				sslCA: ca,
+//				poolSize: 1,
+//				reconnectTries: 1
+//			}
+//		});
+//	}
+	if (options.configParams["orion.collab.enabled"]) {
+		mongoose.connect('mongodb://sidney:sidney@sl-us-south-1-portal.5.dblayer.com:17990/orion_multitenant?ssl=true');
+	} else {
+		mongoose.connect('mongodb://localhost/orion_multitenant');
+	}
 	api.getOrionEE().on("close-server", function() {
 		logger.info("Closing MongoDB");
 		if (mongoose && (mongoose.connection.readyState === 1 || mongoose.connection.readyState === 2)) {
@@ -218,7 +240,9 @@ Object.assign(MongoDbMetastore.prototype, {
 	},
 	getWorkspaceDir: function(workspaceId) {
 		var userId = decodeUserIdFromWorkspaceId(workspaceId);
-		return path.join(this.options.workspaceDir, userId.substring(0,2), userId, decodeWorkspaceNameFromWorkspaceId(workspaceId));
+		var workspacePath = path.join(this.options.workspaceDir, userId.substring(0,2), userId, decodeWorkspaceNameFromWorkspaceId(workspaceId));
+		mkdirp.sync(workspacePath);
+		return workspacePath;
 	},
 	readUserPreferences: function(userId, callback) {
 		findUser(userId, userId, function(err, user) {

@@ -23,6 +23,7 @@
     "google-protobuf": "^3.0.0-alpha.6.2",
     "http-shutdown": "^1.2.0",
     "https": "^1.0.0",
+    "http-proxy": "^1.16.2",
     "js-yaml": "^3.6.1",
     "jsonwebtoken": "^7.2.0",
     "lockfile": "^1.0.1",
@@ -32,8 +33,9 @@
     "mongodb": "^2.1.7",
     "mongoose": "^4.4.6",
     "multiparty": "^4.1.2",
-    "nodegit": "0.16.0",
     "nodemailer": "^2.3.0",
+    "node-pty": "^0.6.2",
+    "nodemon": "^1.11.0",
     "passport": "^0.3.2",
     "passport-github2": "^0.1.10",
     "passport-google-oauth20": "^1.0.0",
@@ -45,6 +47,7 @@
     "semver": "^5.3.0",
     "socket.io": "~1.4.8",
     "tiny-worker": "^1.1.4",
+    "term.js":"^0.0.7",
     "unzip2": "^0.2.5",
     "xterm": "^2.3.2",
     "yaml-ast-parser": "0.0.28"
@@ -78,6 +81,8 @@
     "dist:linux": "build --l",
     "test": "mocha --reporter spec",
     "optimize": "grunt",
+    "postinstall": "if([ not $(node -p \"require('nodegit/package.json').version\") ]); then npm install nodegit@^0.17.0 --build-from-source; fi;", 
+    "start": "PS1=\"bash$ \" VCAP_APP_PORT=3000 SHELL=bash node server.js", 
     "watch-server": "nodemon --debug server.js"
   },
   "build": {

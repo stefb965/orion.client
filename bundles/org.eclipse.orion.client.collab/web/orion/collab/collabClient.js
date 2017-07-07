@@ -19,6 +19,7 @@ define(['orion/collab/ot', 'orion/collab/collabFileAnnotation', 'orion/collab/ot
     'use strict';
 
 	var mAnnotations;
+	var openedFiles = {};
 	var mTreeTable;
 	var AT;
 
@@ -63,6 +64,7 @@ define(['orion/collab/ot', 'orion/collab/collabFileAnnotation', 'orion/collab/ot
 		this.editor = editor;
 		this.inputManager = inputManager;
 		this.fileClient = fileClient;
+		fileClient.guid = Math.floor(Math.random() * 0x100000000).toString(16) + '.' + Math.floor(Math.random() * 0x100000000).toString(16) + '.' + Math.floor(Math.random() * 0x100000000).toString(16) + '.' + Math.floor(Math.random() * 0x100000000).toString(16) + '.' + Math.floor(Math.random() * 0x100000000).toString(16) + '.' + Math.floor(Math.random() * 0x100000000).toString(16) + '.' + Math.floor(Math.random() * 0x100000000).toString(16) + '.' + Math.floor(Math.random() * 0x100000000).toString(16);
 		this.preferences = preferences;
 		this.textView = this.editor.getTextView();
 		var self = this;
@@ -381,7 +383,9 @@ define(['orion/collab/ot', 'orion/collab/collabFileAnnotation', 'orion/collab/ot
 
 		viewInstalled: function(event) {
 			var self = this;
-			var ruler = this.editor._annotationRuler;
+			var ruler = this.editor._annotationRuler; var doc = this.currentDoc();
+			if (this.currentOpen) { openedFiles[this.currentOpen] = false; }
+			if (openedFiles[doc]) { this.currentOpen = null; return; } else { console.log(doc + ' in.'); openedFiles[doc] = true; this.currentOpen = doc; } 
 			ruler.addAnnotationType(AT.ANNOTATION_COLLAB_LINE_CHANGED, 1);
 			ruler = this.editor._overviewRuler;
 			ruler.addAnnotationType(AT.ANNOTATION_COLLAB_LINE_CHANGED, 1);
@@ -392,6 +396,7 @@ define(['orion/collab/ot', 'orion/collab/collabFileAnnotation', 'orion/collab/ot
 		},
 
 		viewUninstalled: function(event) {
+			if (this.currentOpen) { openedFiles[this.currentOpen] = false; }
 			this.textView = null;
 			this.destroyOT();
 		},
@@ -492,7 +497,7 @@ define(['orion/collab/ot', 'orion/collab/collabFileAnnotation', 'orion/collab/ot
 						'operation': operation,
 						'data': evt[operation],
 						'clientId': this.getClientId(),
-						'guid': guid
+						'guid': this.fileClient.guid
 				    };
 					this.otSocketAdapter.send(JSON.stringify(msg));
 				}

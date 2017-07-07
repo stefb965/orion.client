@@ -10,6 +10,7 @@
 }
 
 .terminal {
+	white-space: nowrap;
 	font-size: 14px;
 	font-family: "DejaVu Sans Mono", "Liberation Mono", monospace;
 	height: 100%;
