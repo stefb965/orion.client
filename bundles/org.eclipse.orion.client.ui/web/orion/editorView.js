@@ -383,7 +383,6 @@ define([
 						openDocument(evnt, languageServer);
 						return;
 					}
-					if (!evnt.start) return;
 
 					var textDocumentSync = languageServer.getTextDocumentSync();
 					if (textDocumentSync) {
