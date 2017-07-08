@@ -401,7 +401,7 @@ define([
 						} else if (textDocumentSync === languageServer.ipc.TEXT_DOCUMENT_SYNC_KIND.Incremental) {
 							// TextDocumentSyncKind.Incremental, only send what changed
 							var change = {
-								range: Utils.getRange(editor, evnt.start, evnt.start),
+								range: Utils.getRange(editor, evnt.start, evnt.start + evnt.removedCharCount),
 								rangeLength: evnt.removedCharCount,
 								text: evnt.text
 							};
