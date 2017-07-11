@@ -49,8 +49,6 @@ define ([
 					var currentLoc = loc;
 					if (Array.isArray(currentLoc) && currentLoc.length !== 0) {
 						currentLoc = currentLoc[0];
-					} else {
-						return;
 					}
 					if (typeof currentLoc.range.start === 'undefined') {
 						return;
