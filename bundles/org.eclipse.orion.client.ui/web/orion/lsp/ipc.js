@@ -23,6 +23,16 @@ define([], function() {
 	});
 
 	/**
+	 * The object of codes for a DocumentHighlight to indicate what
+	 * what kind of highlighting it is.
+	 */
+	IPC.prototype.DOCUMENT_HIGHLIGHT_KIND = Object.freeze({
+		None: 1,
+		Read: 2,
+		Write: 3
+	});
+
+	/**
 	 * The object of error codes
 	 * @see https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md#response-message
 	 */

@@ -81,7 +81,8 @@ define([
 					var offset = editor.getLineStart(result.range.start.line);
 					return {
 						start: result.range.start.character+offset,
-						end: result.range.end.character+offset
+						end: result.range.end.character+offset,
+						readAccess: result.kind === lspProviderImpl.ipc.DOCUMENT_HIGHLIGHT_KIND.Read
 					};
 				});
 			} 
