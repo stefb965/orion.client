@@ -11,5 +11,10 @@
 		"edit/content/jsonEditorPlugin.html":true,
 		"cfui/plugins/cFPlugin.html":true,
 		"cfui/plugins/cFDeployPlugin.html":true
+	},
+	"/git/config": {
+		"userInfo": {
+			"GitRepoDirEnabled": true
+		}
 	}
 }
