@@ -127,6 +127,14 @@ function startServer(cb) {
 				try {
 					httpProxy = require('http-proxy');
 					var proxy = httpProxy.createProxyServer({});
+					app.use('/:port/', function(req, res, next) {
+						if (!isFinite(req.params.port) || Math.floor(req.params.port) !== req.params.port) { next(); return; }
+						proxy.web(req, res, { target: 'http://127.0.0.1:' + req.params.port }, function(ex) { next(ex); } );
+					});
+					app.use('/port/:port/', function(req, res, next) {
+						if (!isFinite(req.params.port) || Math.floor(req.params.port) !== req.params.port) { next(); return; }
+						proxy.web(req, res, { target: 'http://127.0.0.1:' + req.params.port }, function(ex) { next(ex); } );
+					});
 					app.use('/', function(req, res, next) {
 						proxy.web(req, res, { target: 'http://127.0.0.1:' + configParams["orion.proxy.port"], changeOrigin: true }, function(ex) { next(); } );
 					});

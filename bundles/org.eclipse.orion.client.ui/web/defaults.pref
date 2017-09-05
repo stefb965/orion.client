@@ -1,5 +1,6 @@
-{
+{ "/collab": { "hubUrl": "http://localhost:8082/" },
 	"/plugins":{
+		"collab/plugins/collabPlugin.html":true,
 		"plugins/orionSharedWorker.js": true,
 		"shell/plugins/shellPagePlugin.html": true,
 		"plugins/site/sitePlugin.html": true,
@@ -10,6 +11,12 @@
 		"edit/content/imageViewerPlugin.html":true,
 		"edit/content/jsonEditorPlugin.html":true,
 		"cfui/plugins/cFPlugin.html":true,
-		"cfui/plugins/cFDeployPlugin.html":true
+		"cfui/plugins/cFDeployPlugin.html":true,
+		"plugins/consolePlugin.html": true
+	},
+	"/git/config": {
+		"userInfo": {
+			"GitRepoDirEnabled": true
+		}
 	}
 }
