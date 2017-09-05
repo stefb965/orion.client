@@ -165,8 +165,8 @@ MongoDbMetastore.prototype.setup = function(app) {
 		secret: 'keyboard cat',
 		store: new MongoStore({ mongooseConnection: mongoose.connection })
 	}));
-	app.use(passport.initialize());
-	app.use(passport.session());
+//	app.use(passport.initialize());
+//  app.use(passport.session());
 	passport.use(orionAccount.createStrategy());
 	passport.serializeUser(orionAccount.serializeUser());
 	passport.deserializeUser(orionAccount.deserializeUser());
