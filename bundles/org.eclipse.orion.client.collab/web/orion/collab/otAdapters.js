@@ -307,6 +307,7 @@ define(['orion/collab/collabPeer', 'orion/collab/ot', 'orion/uiUtils'], function
 
             case 'client-left':
                 this.collabClient.removePeer(msg.clientId);
+                this.collabClient.textView._removePeerHighlight(msg.clientId);
                 break;
 
             default:
@@ -574,7 +575,7 @@ define(['orion/collab/collabPeer', 'orion/collab/ot', 'orion/uiUtils'], function
     };
 
     OrionEditorAdapter.prototype.getSelection = function () {
-        return ot.Selection.createCursor(this.editor.getSelection().start);
+        return new ot.Selection([new ot.Selection.Range(this.editor.getSelection().start, this.editor.getSelection().end)]);
     };
 
     OrionEditorAdapter.prototype.setSelection = function (selection) {
@@ -608,14 +609,14 @@ define(['orion/collab/collabPeer', 'orion/collab/ot', 'orion/uiUtils'], function
         var lastLine = this.model.getLineCount()-1;
         var lineStartOffset = this.model.getLineStart(currLine);
 
-        if (offset) {
-            //decide whether or not it is worth sending (if line has changed or needs updating).
-            if (currLine !== this.myLine || currLine === lastLine || currLine === 0) {
-                // Send this change
-            } else {
-                return;
-            }
-        }
+//        if (offset) {
+//            //decide whether or not it is worth sending (if line has changed or needs updating).
+//            if (currLine !== this.myLine || currLine === lastLine || currLine === 0) {
+//                // Send this change
+//            } else {
+//                return;
+//            }
+//        }
 
         this.myLine = currLine;
 
@@ -630,7 +631,12 @@ define(['orion/collab/collabPeer', 'orion/collab/ot', 'orion/uiUtils'], function
         if (this.changeInProgress) {
             this.selectionChanged = true;
         } else {
-            this.trigger('selectionChange');
+            if(!this.editor._listener.mouseDown){
+              // Trigger 'selectionChange' (send messges) only if mouse is up.
+              // This prevents from sending multiple messages
+              // while user is selecting.
+              this.trigger('selectionChange');
+            }
         }
     };
 
@@ -647,12 +653,19 @@ define(['orion/collab/collabPeer', 'orion/collab/ot', 'orion/uiUtils'], function
         var name = peer ? peer.name : undefined;
         color = peer ? peer.color : color;
         this.updateLineAnnotation(clientId, selection, name, color);
+        this.updateHighlight(clientId, selection, name, color);
         var self = this;
         return {
             clear: function() {
                 self.destroyCollabAnnotations(clientId);
             }
         };
+    };
+    OrionEditorAdapter.prototype.updateHighlight = function(id, selection, name, color, force) {
+       // Extracting 'highlight' information out of 'selection' object
+       var ranges = selection.ranges[0];
+ 
+       this.collabClient.textView._addHighlight(id, color, ranges.anchor, ranges.head);
     };
 
     OrionEditorAdapter.prototype.updateLineAnnotation = function(id, selection, name, color, force) {
