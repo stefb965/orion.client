@@ -17,7 +17,7 @@ module.exports = {
 	/**
 	 * Orion url
 	 */
-	'orion': "http://localhost:8081/dev",
+	'orion': "http://localhost:8084/dev/",
 	/**
 	 * Load url. Make sure end with /
 	 */
@@ -34,4 +34,4 @@ module.exports = {
 	 * Specify how long between every saving (in ms)
 	 */
 	'saveFrequency': 1000
-}
+};
