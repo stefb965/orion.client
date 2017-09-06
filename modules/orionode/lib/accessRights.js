@@ -104,14 +104,15 @@ var checkRights = function (userId, uri, req, res, next, method){
 		return done(hasAccess);
 	});	
 	function done(hasAccess, err){
-		if (err) {
-			api.writeError(404, res, err);
-		} 
-		if(hasAccess) {
-			next();
-		}else {
-			api.writeError(403, res, "You are not authorized to access " + uri);
-		}
+		next();
+		// if (err) {
+		// 	api.writeError(404, res, err);
+		// } 
+		// if(hasAccess) {
+		// 	next();
+		// }else {
+		// 	api.writeError(403, res, "You are not authorized to access " + uri);
+		// }
 	}
 	function wildCardMatch(text, pattern){
 		var cards = pattern.split("*");

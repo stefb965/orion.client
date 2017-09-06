@@ -150,7 +150,7 @@ function startServer(options) {
 		app.use('/prefs', options.authenticate, checkAuthenticated, require('./lib/prefs').router(options));
 		app.use('/xfer', options.authenticate, checkAuthenticated, require('./lib/xfer').router(options));
 		if(options.configParams["orion.collab.enabled"]){
-			app.use('/sharedWorkspace', options.authenticate, checkAuthenticated, require('./lib/sharedWorkspace').router(options));
+			app.use('/sharedWorkspace', options.authenticate, require('./lib/sharedWorkspace').router(options));
 		}
 		
 		// Static files
