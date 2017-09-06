@@ -5531,8 +5531,7 @@ define("orion/editor/textView", [  //$NON-NLS-1$
 				_parent.appendChild(div1);
 				div1.innerHTML = newArray(2).join("a"); //$NON-NLS-1$
 				rect1 = div1.getBoundingClientRect();
-				var charWidth_float = rect1.right - rect1.left;
-				charWidth = Math.ceil(charWidth_float);
+				charWidth = Math.ceil(rect1.right - rect1.left);
 				if (this._wrapOffset || this._marginOffset) {
 					div1.innerHTML = newArray(this._wrapOffset + 1 + (util.isWebkit ? 0 : 1)).join(" "); //$NON-NLS-1$
 					rect1 = div1.getBoundingClientRect();
@@ -5551,7 +5550,6 @@ define("orion/editor/textView", [  //$NON-NLS-1$
 				scrollWidth: scrollWidth,
 				wrapWidth: wrapWidth,
 				marginWidth: marginWidth,
-				charWidth_float: charWidth_float,
 				charWidth: charWidth,
 				invalid: invalid
 			};
@@ -7497,14 +7495,14 @@ define("orion/editor/textView", [  //$NON-NLS-1$
 				var frag = doc.createDocumentFragment();
 				for (lineIndex=lineStart; lineIndex<=lineEnd; lineIndex++) {
 					if (!child || child.lineIndex > lineIndex) {
-						new TextLine(this, lineIndex).create(frag, null, true);
+						new TextLine(this, lineIndex).create(frag, null);
 					} else {
 						if (frag.firstChild) {
 							clientDiv.insertBefore(frag, child);
 							frag = doc.createDocumentFragment();
 						}
 						if (child && child.lineChanged) {
-							child = new TextLine(this, lineIndex).create(frag, child, true);
+							child = new TextLine(this, lineIndex).create(frag, child);
 							child.lineChanged = false;
 						}
 						child = this._getLineNext(child);
@@ -8023,6 +8021,7 @@ define("orion/editor/textView", [  //$NON-NLS-1$
     //   destroy
     //
 
+
     /**
      * Reference to parent 'textView' instance
      */
@@ -8062,6 +8061,7 @@ define("orion/editor/textView", [  //$NON-NLS-1$
      *   },
      *   ...
      * ]
+     *
      */
     this._highlights = [];
 
@@ -8126,7 +8126,7 @@ define("orion/editor/textView", [  //$NON-NLS-1$
 
     // Dimension constants
     var lineHeight = this._view._getLineHeight();
-    var charWidth = this._view._calculateMetrics().charWidth_float;
+    var charWidth = 7.2246;
     /**
      * Relative position in the document
      * that is currently at the top edge of the view
@@ -8235,4 +8235,3 @@ define("orion/editor/textView", [  //$NON-NLS-1$
 	
 	return {TextView: TextView};
 });
-
