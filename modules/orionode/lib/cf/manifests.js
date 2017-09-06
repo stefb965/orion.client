@@ -325,6 +325,9 @@ function analyzeManifest(manifest, manifestAST, fileContent){
 }
 function retrieveProjectFilePath(req){
 	var projectPath = req.params[0];
+	if(projectPath.startsWith(options.sharedWorkspaceFileRoot)){
+		projectPath = projectPath.substring(options.sharedWorkspaceFileRoot.length)
+	}
 	var file = fileUtil.getFile(req, projectPath);
 	return file.path;
 }
