@@ -1,6 +1,6 @@
 {
 	"/collab": {
-		"hubUrl": "http://172.17.0.7:8082/" 
+		"hubUrl": "http://192.168.99.100:32611/" 
 	},
 	"/plugins":{
 		"collab/plugins/collabPlugin.html":true,
