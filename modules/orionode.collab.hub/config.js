@@ -17,7 +17,7 @@ module.exports = {
 	/**
 	 * Orion url
 	 */
-	'orion': "http://localhost:8081/dev/",
+	'orion': "http://172.17.0.7:8081/dev/",
 	/**
 	 * Load url. Make sure end with /
 	 */

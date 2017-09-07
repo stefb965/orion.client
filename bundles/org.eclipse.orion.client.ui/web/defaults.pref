@@ -1,4 +1,7 @@
-{ "/collab": { "hubUrl": "http://localhost:8082/" },
+{
+	"/collab": {
+		"hubUrl": "http://172.17.0.7:8082/" 
+	},
 	"/plugins":{
 		"collab/plugins/collabPlugin.html":true,
 		"plugins/orionSharedWorker.js": true,
