@@ -21,5 +21,10 @@
 		"userInfo": {
 			"GitRepoDirEnabled": true
 		}
+	},
+	"/general/settings":{
+		"generalSettings": {
+			"enableDebuggerVisible": true
+		}
 	}
 }
