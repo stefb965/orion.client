@@ -21,7 +21,6 @@ var fs = require('fs');
  * @param {Object} options
  * @param {Express} options.app
  * @param {SocketIO.Server} options.io
- * @param {string} [options.listenPath]
  * @param {string} [options.workspaceDir]
  * @return {boolean} - success
  */
@@ -35,16 +34,15 @@ function install(options) {
     var app = options.app;
     var io = options.io;
     var workspaceDir = options.workspaceDir;
-    var listenPath = options.listenPath ? options.listenPath : '';
 
     /** @type {Map.<string, DebugAdapter>} */
     var adapterPool = new Map();
 
     // Streaming files from debug adapters
-    app.use(listenPath + '/debug/file', require('./lib/debugFile')(adapterPool));
+    app.use('/debug/file', require('./lib/debugFile')(adapterPool));
 
     // Get workspace path of the Orion user when this debug server runs as a module of Orionode)
-    app.get(listenPath + '/debug/workspacePath', function(req, res) {
+    app.get('/debug/workspacePath', function(req, res) {
         if (req.user) {
             var fullWorkspace;
             if (req.user.workspaceDir) {
@@ -65,13 +63,13 @@ function install(options) {
     });
 
     // Get all available adapter types
-    app.get(listenPath + '/debug/adapterTypes', function(req, res) {
+    app.get('/debug/adapterTypes', function(req, res) {
         res.header('Content-Type', 'application/json');
         res.send(JSON.stringify(AdapterManager.types));
     });
 
     // Get the list of template of a specific adapter
-    app.get(listenPath + '/debug/templates/:type', function(req, res) {
+    app.get('/debug/templates/:type', function(req, res) {
         res.header('Content-Type', 'application/json');
         res.send(JSON.stringify(AdapterManager.getTemplates(req.params.type)));
     });

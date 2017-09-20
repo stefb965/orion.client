@@ -148,7 +148,7 @@ function startServer(cb) {
 			ttyShell.install({ io: io, app: orion, fileRoot: contextPath + '/file', workspaceDir: workspaceDir, sharedWorkspaceFileRoot: contextPath + '/sharedWorkspace/tree/file'});
 			if (configParams["orion.debug.enabled"]) {
 				var debugServer = require(configParams["debug.server.module"]);
-				debugServer.install({ io: io, app: orion, fileRoot: contextPath + '/file', workspaceDir: workspaceDir, listenPath: listenContextPath ? contextPath : '' });
+				debugServer.install({ io: io, app: orion, fileRoot: contextPath + '/file', workspaceDir: workspaceDir});
 			}
 
 			//error handling

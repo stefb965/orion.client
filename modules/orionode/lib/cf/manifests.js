@@ -140,7 +140,8 @@ module.exports.retrieveProjectFilePath = retrieveProjectFilePath = function retr
 	var projectPath = req.params[0],
 		file;
 	if(typeof projectPath === 'string') {
-		projectPath = projectPath.replace(/^\/file/, "");
+		var regex = new RegExp("^"+manifestOptions.fileRoot)
+		projectPath = projectPath.replace(regex, "");
 	}
 	if(projectPath.startsWith(manifestOptions.sharedWorkspaceFileRoot)){
 		projectPath = projectPath.substring(manifestOptions.sharedWorkspaceFileRoot.length)
