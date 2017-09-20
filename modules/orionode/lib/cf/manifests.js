@@ -20,6 +20,7 @@ var yamlAstParser = require("yaml-ast-parser");
 var target = require("./target");
 var tasks = require("../tasks");
 var crypto = require('crypto');
+var manifestOptions;
 
 /**
  * @description Class to handle manifests
@@ -29,15 +30,17 @@ class ManifestRouter {
 	/**
 	 * @description Create a new instance of the class
 	 */
-	constructor() {}
+	constructor(options) {
+		manifestOptions = options;
+	}
 	/**
 	 * @description Create an express Router for handling /manifests
 	 * @param {?} options The map of options. The option 'fileRoot' must be specified. All other options are optional
 	 * @returns {Router} A new express router
 	 * @throws {Error} If options.filePath is not defined
 	 */
-	createRouter(options) {
-		if (!options.fileRoot) { 
+	createRouter() {
+		if (!manifestOptions.fileRoot) { 
 			throw new Error('options.fileRoot is required'); 
 		}
 		return express.Router()
@@ -138,6 +141,9 @@ module.exports.retrieveProjectFilePath = retrieveProjectFilePath = function retr
 		file;
 	if(typeof projectPath === 'string') {
 		projectPath = projectPath.replace(/^\/file/, "");
+	}
+	if(projectPath.startsWith(manifestOptions.sharedWorkspaceFileRoot)){
+		projectPath = projectPath.substring(manifestOptions.sharedWorkspaceFileRoot.length)
 	}
 	file = fileUtil.getFile(req, projectPath);
 	if(file && file.path) {

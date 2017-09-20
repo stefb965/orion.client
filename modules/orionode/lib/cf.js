@@ -42,7 +42,7 @@ class CloudFoundry {
 		router.use("/apps", apps.router(options));
 		router.use("/domains", domains.router(options));
 		router.use("/logz", logz.router(options));
-		router.use("/manifests", new manifests().createRouter(options));
+		router.use("/manifests", new manifests(options).createRouter());
 		router.use("/orgs", orgs.router(options));
 		router.use("/plans", plans.router(options));
 		router.use("/routes", routes.router(options));
