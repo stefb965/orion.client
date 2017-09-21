@@ -116,8 +116,10 @@ define([
 		this._linkDefs = {};
 
 		/* relativize marked's outputLink */
-		var resourceURL = new URL(resource, window.location.href);
-		marked.InlineLexer.prototype.outputLink = filterOutputLink(resourceURL, fileClient, resource.indexOf(":") === -1); //$NON-NLS-0$
+		if (resource) {
+			var resourceURL = new URL(resource, window.location.href);
+			marked.InlineLexer.prototype.outputLink = filterOutputLink(resourceURL, fileClient, resource.indexOf(":") === -1); //$NON-NLS-0$
+		}
 
 		this._inlinePatterns = [];
 		var patternIndex = 0;
@@ -1393,7 +1395,7 @@ define([
 		this.id = "orion.editor.markdown"; //$NON-NLS-0$
 		this._fileService = options.fileService;
 		this._metadata = options.metadata;
-		this._parent = options.parent;
+		this._parent = lib.node(options.parent);
 		this._model = options.model;
 		this._editorView = options.editorView;
 		this._targetAnchor = options.anchor;
@@ -1450,6 +1452,7 @@ define([
 		}.bind(this);
 
 		this._settingsListener = function(e) {
+			if (this._styler)
 			this._styler.setWhitespacesVisible(e.newSettings.showWhitespaces, true);
 		}.bind(this);
 
@@ -1581,7 +1584,7 @@ define([
 			var editor = this._editorView.editor;
 			var textView = editor.getTextView();
 			var annotationModel = editor.getAnnotationModel();
-			this._stylerAdapter = new MarkdownStylingAdapter(this._model, this._metadata.Location, this._fileService);
+			this._stylerAdapter = new MarkdownStylingAdapter(this._model, this._metadata && this._metadata.Location, this._fileService);
 			this._styler = new mTextStyler.TextStyler(textView, annotationModel, this._stylerAdapter);
 
 			this._editorView.editor.getTextView().addEventListener("Scroll", this._sourceScrollListener); //$NON-NLS-0$
@@ -1892,13 +1895,15 @@ define([
 			}
 		});
 		options.commandRegistry.addCommand(generateCommand);
-		options.commandRegistry.registerCommandContribution(
-			options.menuBar.toolsActionsScope,
-			ID,
-			1,
-			"orion.menuBarToolsGroup",
-			false,
-			new mKeyBinding.KeyBinding("G", true, false, true)); //$NON-NLS-1$ //$NON-NLS-0$
+		if (options.menuBar) {
+			options.commandRegistry.registerCommandContribution(
+				options.menuBar.toolsActionsScope,
+				ID,
+				1,
+				"orion.menuBarToolsGroup",
+				false,
+				new mKeyBinding.KeyBinding("G", true, false, true)); //$NON-NLS-1$ //$NON-NLS-0$
+		}
 
 		ID = "markdown.toggle.orientation"; //$NON-NLS-0$
 		toggleOrientationCommand = new mCommands.Command({
@@ -1918,7 +1923,7 @@ define([
 		});
 		options.commandRegistry.addCommand(toggleOrientationCommand);
 		options.commandRegistry.registerCommandContribution("settingsActions", ID, 1, null, false); //$NON-NLS-0$
-	}
+}
 	MarkdownEditorView.prototype = {
 		create: function() {
 			this.editor = new MarkdownEditor(this._options);

@@ -14,6 +14,7 @@ define([
 	'orion/editor/undoStack',
 	'orion/inputManager',
 	'orion/editorView',
+	'orion/markdownEditor',
 	'orion/Deferred',
 	'orion/webui/littlelib',
 	'orion/objects'
@@ -22,6 +23,7 @@ define([
 	mUndoStack,
 	mInputManager,
 	mEditorView,
+	mMarkdownEditor,
 	Deferred,
 	lib,
 	objects
@@ -98,9 +100,14 @@ define([
 		
 		createEditor: function(options, startupOptions) {
 			this.createInputManager();
-			this.editorView = new mEditorView.EditorView(this.defaultOptions(options));
+			var options = this.defaultOptions(options);
+			var view = this.editorView = new mEditorView.EditorView(options);
+			if (true) {// check some flag and/or the file content type
+					options.editorView = this.editorView;
+					view = new mMarkdownEditor.MarkdownEditorView(options);
+			}
 			idCounter++;
-			this.editorView.create();
+			view.create();
 			this._inputManager.editor = this.editorView.editor;
 			
 			var domNode = lib.node(options.parent);
