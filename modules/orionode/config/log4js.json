@@ -14,7 +14,12 @@
         "livesync": "DEBUG",
         "file": "INFO"
     },
-    "appenders": [{
+   "appenders": [{
         "type": "console"
+    }, {
+        "type": "dateFile",
+        "filename": "orion.log",
+        "pattern": ".yyyy-MM-dd"
     }]
+    
 }
