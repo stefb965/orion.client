@@ -161,7 +161,7 @@ function startServer(options) {
 			// It's dev time
 			staticCacheOption = {
 				maxAge: options.maxAge
-			}
+			};
 		} else {
 			staticCacheOption = {
 				setHeaders: function(res, urlPath, stat){
@@ -174,7 +174,7 @@ function startServer(options) {
 						res.setHeader("Cache-Control", _24_HOURS);
 					}
 				}
-			}
+			};
 		}
 		if (fs.existsSync(MINIFIED_ORION_CLIENT)) {
 			app.use(express.static(MINIFIED_ORION_CLIENT, Object.assign({dotfiles: 'allow'}, staticCacheOption)));

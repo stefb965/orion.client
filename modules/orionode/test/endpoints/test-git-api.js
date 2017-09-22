@@ -31,7 +31,7 @@ try {
 } catch (e) {
 }
 
-var CONTEXT_PATH = '',
+var CONTEXT_PATH = '/devops/code',
 	WORKSPACE = path.join(__dirname, '.test_workspace'),
 	MEATASTORE =  path.join(__dirname, '.test_metadata'),
 	WORKSPACE_ID = "anonymous-OrionContent",
@@ -40,8 +40,14 @@ var CONTEXT_PATH = '',
 		"orion.single.user.metaLocation": MEATASTORE
 	},
 	FILE_ROOT = "/file/" + WORKSPACE_ID + "/";
+	
+if (CONTEXT_PATH) {
+	configParams["orion.context.listenPath"]=true;
+	configParams["orion.context.path"]=CONTEXT_PATH;
+}
 
-	var userMiddleware = function(req, res, next) {
+var userMiddleware = function(req, res, next) {
+	req.contextPath = CONTEXT_PATH;
 	req.user.checkRights = checkRights;
 	next();
 };
@@ -744,7 +750,7 @@ maybeDescribe("git", function() {
 				.post(CONTEXT_PATH + "/gitapi/clone/")
 				.send({
 					"Name":  TEST_REPO_NAME,
-					"Location": CONTEXT_PATH + '/workspace/' + WORKSPACE_ID,
+					"Location": '/workspace/' + WORKSPACE_ID,
 					"GitName": "test",
 					"GitMail": "test@test.com"
 				})
