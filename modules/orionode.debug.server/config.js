@@ -16,7 +16,7 @@ module.exports = {
     port: 8083,
 
     // Logger level
-    verbose: false,
+    verbose: true,
 
     // Socket.IO CORS domain (standalone server only)
     socketioCorsDomain: '*:*',

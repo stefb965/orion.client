@@ -21,7 +21,7 @@ define([
 
     'use strict';
 
-    var DEBUG = false;
+    var DEBUG = true;
 
     var ID_INCREMENT = 0;
 

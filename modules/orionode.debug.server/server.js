@@ -59,7 +59,7 @@ if (require.main === module) {
     });
     var port = process.env.PORT || config.port;
     server.listen(port);
-    console.log('Listening on port ' + port + '...');
+    console.log('Debugger Listening on port ' + port + '...');
 }
 
 module.exports.install = install;
