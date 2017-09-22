@@ -103,7 +103,7 @@ function getGitResponse(res2) {
 			if (res.statusCode === 202 || !res.body.Result) {
 				return setTimeout(function() {
 					request()
-					.get(CONTEXT_PATH + res2.body.Location)
+					.get(res2.body.Location)
 					.end(function(err, res1) {
 						if (err) {
 							return reject(err);
@@ -757,7 +757,7 @@ maybeDescribe("git", function() {
 				.expect(201)
 				.end(function(err, res) {
 					assert.ifError(err);
-					assert.equal(res.body.Location, "/gitapi/clone" + FILE_ROOT + TEST_REPO_NAME);
+					assert.equal(res.body.Location, CONTEXT_PATH + "/gitapi/clone" + FILE_ROOT + TEST_REPO_NAME);
 					finished();
 				});
 			});
@@ -892,7 +892,7 @@ maybeDescribe("git", function() {
 				.expect(201)
 				.end(function(err, res) {
 					assert.ifError(err);
-					assert.equal(res.body.Location, "/gitapi/remote/" + remoteName + FILE_ROOT + TEST_REPO_NAME);
+					assert.equal(res.body.Location, CONTEXT_PATH + "/gitapi/remote/" + remoteName + FILE_ROOT + TEST_REPO_NAME);
 					finished();
 				});
 			});
@@ -998,7 +998,7 @@ maybeDescribe("git", function() {
 				.expect(201)
 				.end(function(err, res) {
 					assert.ifError(err);
-					assert.equal(res.body.Location, "/gitapi/remote/" + remoteName + FILE_ROOT + TEST_REPO_NAME);
+					assert.equal(res.body.Location, CONTEXT_PATH + "/gitapi/remote/" + remoteName + FILE_ROOT + TEST_REPO_NAME);
 					finished();
 				});
 			});
@@ -1177,7 +1177,7 @@ maybeDescribe("git", function() {
 				.post(CONTEXT_PATH + "/gitapi/clone/")
 				.send({
 					"Name":  TEST_REPO_NAME,
-					"Location": CONTEXT_PATH + '/workspace/' + WORKSPACE_ID,
+					"Location": '/workspace/' + WORKSPACE_ID,
 					"GitName": "test",
 					"GitMail": "test@test.com"
 				})
