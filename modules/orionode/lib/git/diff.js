@@ -66,7 +66,7 @@ function getDiff(req, res) {
 			URIs = {
 				"BaseLocation": getBaseLocation(scope, p),
 				"CloneLocation": gitRoot + "/clone" + fileDir,
-				"Location": gitRoot + "/diff/" + api.encodeURIComponent(scope) + fileDir + filePath,
+				"Location": path.join(gitRoot, "/diff", api.encodeURIComponent(scope), fileDir, filePath),
 				"NewLocation": getNewLocation(scope, p, req.contextPath),
 				"OldLocation": getOldLocation(scope, p),
 				"Type": "Diff"
