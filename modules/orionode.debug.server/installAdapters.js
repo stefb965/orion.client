@@ -74,7 +74,7 @@ function installNext() {
             installNext();
         } else {
             process.chdir(packageName);
-            exec('npm install', function(err) {
+            exec('npm install --unsafe-perm', function(err) {
                 if (err) {
                     process.stderr.write('Error when installing: ' + packageName + '@' + packageGit + ':\n');
                     process.stderr.write(JSON.stringify(err));
