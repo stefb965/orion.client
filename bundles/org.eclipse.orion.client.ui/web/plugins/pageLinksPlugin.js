@@ -43,15 +43,13 @@ define([
 			order: 10
 		});
 		
-		if (!util.isElectron) {
-			provider.registerService("orion.page.link.category", null, {
-				id: "shell",
-				name: messages["Shell"],
-				nls: "orion/nls/messages",
-				imageClass: "core-sprite-shell",
-				order: 40
-			});
-		}
+		provider.registerService("orion.page.link.category", null, {
+			id: "shell",
+			name: messages["Shell"],
+			nls: "orion/nls/messages",
+			imageClass: "core-sprite-shell",
+			order: 40
+		});
 		
 		provider.registerService("orion.page.link.category", null, {
 			id: "settings",
