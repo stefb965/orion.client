@@ -241,7 +241,7 @@ define([
         // Render editor
         if (!confParams.launchArguments) {
             confParams.launchArguments = {
-                "program": "${workspaceRoot}/program",
+                "program": "${workspaceRoot}/server.js",
                 "cwd": "${workspaceRoot}"
             };
         }

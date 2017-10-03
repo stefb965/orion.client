@@ -41,7 +41,7 @@ function install(options, io) {
     app.use('/debug/file', require('./lib/debugFile')(adapterPool));
 
     // Get workspace path of the Orion user when this debug server runs as a module of Orionode)
-    app.get('/debug/workspacePath', function(req, res) {
+    app.get('/debug/workspacePath', options.authenticate, function(req, res) {
         if (req.user) {
             var fullWorkspace;
             if (req.user.workspaceDir) {
