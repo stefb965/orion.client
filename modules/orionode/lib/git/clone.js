@@ -23,8 +23,7 @@ var api = require('../api'), writeError = api.writeError, writeResponse = api.wr
 	bodyParser = require('body-parser'),
 	rmdir = require('rimraf'),
 	prefs = require('../prefs'),
-	credentialsProvider = require('./credentials'),
-	responseTime = require('response-time');
+	credentialsProvider = require('./credentials');
 
 module.exports = {};
 
@@ -67,7 +66,6 @@ module.exports.router = function(options) {
 
 	return express.Router()
 	.use(bodyParser.json())
-	.use(responseTime({digits: 2, header: "X-GitapiClone-Response-Time", suffix: true}))
 	.use(checkUserAccess) // Use specified checkUserAceess implementation instead of the common one from options
 	.get(workspaceRoot + '*', getClone)
 	.get(fileRoot + '*', getClone)

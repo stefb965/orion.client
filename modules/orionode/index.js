@@ -17,8 +17,7 @@ var express = require('express'),
 	api = require('./lib/api'),
 	checkRights = require('./lib/accessRights').checkRights,
 	log4js = require('log4js'),
-	logger = log4js.getLogger("response"),
-	responseTime = require('response-time');
+	logger = log4js.getLogger("response");
 
 var LIBS = path.normalize(path.join(__dirname, 'lib/')),
 	MINIFIED_ORION_CLIENT = path.normalize(path.join(__dirname, "lib/orion.client")),
@@ -75,8 +74,6 @@ function startServer(options) {
 
 		options.app = app;
 		
-		app.use(responseTime({digits: 2, header: "X-Total-Response-Time", suffix: true}));
-		
 		Object.assign(options, {
 			sharedWorkspaceFileRoot: contextPath + '/sharedWorkspace/tree/file',
 			taskRoot: contextPath + '/task',
@@ -84,7 +81,7 @@ function startServer(options) {
 			fileRoot: contextPath + '/file',
 			gitRoot: contextPath + '/gitapi'
 		});
-		
+
 		function checkAuthenticated(req, res, next) {
 			if (!req.user) {
 				api.writeError(401, res, "Not authenticated");

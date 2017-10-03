@@ -23,8 +23,7 @@ var express = require('express'),
 	generator = require('generate-password'),
 	log4js = require('log4js'),
 	logger = log4js.getLogger("user"),
-	jwt = require('jsonwebtoken'),
-	responseTime = require('response-time');
+	jwt = require('jsonwebtoken');
 	
 var AUTH_TOKEN_BYTES = 48;
 	
@@ -136,7 +135,6 @@ module.exports.router = function(options) {
 	app.use(bodyParser.json());
 	app.use(bodyParser.urlencoded({ extended: false }));
 	app.use(cookieParser());
-	app.use(responseTime({digits: 2, header: "X-User-Response-Time", suffix: true}));
 	
 	function canAddUsers() {
 		return !options.configParams["orion.auth.user.creation"];

@@ -9,15 +9,14 @@
  *		 IBM Corporation - initial API and implementation
  *******************************************************************************/
 /*eslint-env node */
-var api = require('../api'), writeError = api.writeError, writeResponse = api.writeResponse,
-	git = require('nodegit'),
-	clone = require('./clone'),
-	path = require('path'),
-	express = require('express'),
-	fileUtil = require('../fileUtil'),
-	mime = require('mime'),
-	metaUtil = require('../metastore/util/metaUtil'),
-	responseTime = require('response-time');
+var api = require('../api'), writeError = api.writeError, writeResponse = api.writeResponse;
+var git = require('nodegit');
+var clone = require('./clone');
+var path = require('path');
+var express = require('express');
+var fileUtil = require('../fileUtil');
+var mime = require('mime');
+var metaUtil = require('../metastore/util/metaUtil');
 
 module.exports = {};
 
@@ -31,7 +30,6 @@ module.exports.router = function(options) {
 	fileRoot = fileRoot.substring(contextPath.length);
 	
 	return express.Router()
-	.use(responseTime({digits: 2, header: "X-GitapiTree-Response-Time", suffix: true}))
 	.get('/', getTree)
 	.get(fileRoot + '*', getTree);
 	
