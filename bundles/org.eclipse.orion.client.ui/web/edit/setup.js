@@ -344,12 +344,15 @@ objects.mixin(TabWidget.prototype, {
 		}
 		return metadata;
 	},
-	closeAllTabs: function(isNotSetInput) {
-		this.fileList.forEach(function(file){
-			this.closeTab(file.metadata, false, true, true, isNotSetInput);
+	closeAllToRemoveTabs: function() {
+		this.toRemoveTabsFileList.forEach(function(file){
+			this.closeTab(file.metadata, false, true);
 		}.bind(this));
 	},
-	closeTab: function(metadata, isDirty, notStoringCurrentStatus, force, isNotSetInput) {
+	recordToCloseTabs: function (){
+		this.toRemoveTabsFileList = objects.clone(this.fileList);
+	},
+	closeTab: function(metadata, isDirty, notStoringCurrentStatus) {
 		if (!this.editorTabs.hasOwnProperty(metadata.Location)) {
 			return;
 		}
@@ -358,7 +361,7 @@ objects.mixin(TabWidget.prototype, {
 		var href = editorTab.href;
 
 		var tabClose = function() {
-			this.removeTab(metadata, notStoringCurrentStatus, force, isNotSetInput);
+			this.removeTab(metadata, notStoringCurrentStatus);
 			var evt = {
 				type: "TabClosed",
 				resource: metadata.Location
@@ -482,6 +485,7 @@ objects.mixin(TabWidget.prototype, {
 						this.addTab(cachedTab.metadata, cachedTab.href, true, cachedTab.isTransient);
 					}
 				}.bind(this));
+				this.closeAllToRemoveTabs();
 			} else {
 				callback();
 			}
@@ -797,10 +801,10 @@ objects.mixin(TabWidget.prototype, {
 		}
 		return editorTab;
 	},
-	removeTab: function(metadata, notStoringCurrentStatus, force, isNotSetInput) {
+	removeTab: function(metadata, notStoringCurrentStatus) {
 		// Currently there is no support for an editor to be opened that does not have
 		// an associated file.
-		if (!force && this.fileList.length === 1) { // force === true is the case where we don't care the length of fileList
+		if (this.fileList.length === 1) {
 			return;
 		}
 
@@ -832,7 +836,7 @@ objects.mixin(TabWidget.prototype, {
 			closeButton.style.display = "none";
 		}
 
-		if (lastHref !== this.selectedFile.href && !isNotSetInput) {
+		if (lastHref !== this.selectedFile.href) {
 			this.activateEditorViewer();
 			this.setWindowLocation(this.selectedFile.href);
 		}
@@ -1141,10 +1145,11 @@ objects.mixin(EditorViewer.prototype, {
 			}
 			var workspaceId = evt.metadata.Id || (inputManager.getWorkspace() && inputManager.getWorkspace().Id);
 			if(typeof this.tabWidget.workspaceTabPrefs.getWorkspaceId() === 'undefined' || this.tabWidget.workspaceTabPrefs.getWorkspaceId() !== workspaceId) {
-				this.tabWidget.closeAllTabs(true);
+				this.tabWidget.recordToCloseTabs();
 				this.tabWidget.workspaceTabPrefs.setWorkspaceId(workspaceId);
 				this.tabWidget.restoreTabsFromWSPrefs(function(){
 					this.tabWidget.addTab(metadata, tabHref);
+					this.tabWidget.closeAllToRemoveTabs();
 				}.bind(this));
 			} else if(metadata) {
 				this.tabWidget.addTab(metadata, tabHref);
