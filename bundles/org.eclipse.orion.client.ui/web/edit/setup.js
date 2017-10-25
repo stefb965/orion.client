@@ -410,6 +410,7 @@ objects.mixin(TabWidget.prototype, {
 				}
 
 				var newTab = this.addTab(evt.beingDragged.metadata, evt.beingDragged.href);
+				this.setTabStorage();
 				evt.beingDragged.parent.removeTab(evt.beingDragged.metadata);
 
 				// add the hidden property to the newly created node.
@@ -469,7 +470,7 @@ objects.mixin(TabWidget.prototype, {
 						WorkspaceLocation: each.WorkspaceLocation
 					};
 				});
-				var fileInfo = {metadata: {Location: f.metadata.Location, Name: f.metadata.Name, WorkspaceLocation: f.metadata.WorkspaceLocation, Directory: f.metadata.Directory, Parents: parents}, href: f.href, isTransient: f.isTransient};
+				var fileInfo = {metadata: {Location: f.metadata.Location, Name: f.metadata.Name, WorkspaceLocation: f.metadata.WorkspaceLocation, Directory: f.metadata.Directory, Parents: parents}, checked:f.checked, href: f.href, isTransient: f.isTransient};
 				mappedFiles.push(fileInfo);
 			}
 		});
@@ -483,6 +484,9 @@ objects.mixin(TabWidget.prototype, {
 				prefs.reverse().forEach(function(cachedTab) {
 					if (cachedTab) {
 						this.addTab(cachedTab.metadata, cachedTab.href, true, cachedTab.isTransient);
+						if(cachedTab.checked){
+							this.setWindowLocation(cachedTab.href);
+						}
 					}
 				}.bind(this));
 				this.closeAllToRemoveTabs();
@@ -726,14 +730,14 @@ objects.mixin(TabWidget.prototype, {
 			};
 			for (var i = 0; i < this.fileList.length; i++) {
 				if (this.fileList[i].isTransient) {
-					this.fileList.splice(i, 1)
+					this.fileList.splice(i, 1);
 					this.fileList.unshift(fileToAdd);
 					var transientTab = this.editorTabs[this.transientTab.location];
 					delete this.editorTabs[this.transientTab.location];
 					transientTab.editorTabNode.metadata = metadata;
 					transientTab.editorTabNode.href = href;
 					transientTab.closeButtonNode.metadata = metadata;
-					transientTab.location = metadata.Location
+					transientTab.location = metadata.Location;
 					transientTab.href = href;
 					transientTab.breadcrumb.destroy();
 					this.createNewBreadCrumb(transientTab, metadata);
@@ -795,9 +799,6 @@ objects.mixin(TabWidget.prototype, {
 			this.tabWidgetDropdownNode.style.display = "block";
 		} else {
 			editorTab.closeButtonNode.style.display = "none";
-		}
-		if(!isRestoreTabsFromStorage) {
-			this.setTabStorage();
 		}
 		return editorTab;
 	},
@@ -1153,6 +1154,7 @@ objects.mixin(EditorViewer.prototype, {
 				}.bind(this));
 			} else if(metadata) {
 				this.tabWidget.addTab(metadata, tabHref);
+				this.tabWidget.setTabStorage();
 			}
 			if (metadata) {
 				var lastFile = PageUtil.hash();
