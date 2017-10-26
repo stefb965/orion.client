@@ -184,7 +184,6 @@ Object.assign(FsMetastore.prototype, {
 					if (error) {
 						return reject(error);
 					}
-		
 					if (metadata) {
 						var workspaceId = metaUtil.encodeWorkspaceId(userId, workspaceData.id || workspaceData.name);
 						var workspaceObj = {
@@ -199,6 +198,10 @@ Object.assign(FsMetastore.prototype, {
 							"UniqueId": workspaceId,
 							"UserId": userId
 						};
+						if(workspaceData.location) {
+							data.ContentLocation = workspaceData.location;
+							workspaceObj.location = workspaceData.location;
+						}
 						this._updateWorkspaceMetadata(workspaceId, data, function(error) {
 							if (error) {
 								return reject(error);
@@ -214,7 +217,7 @@ Object.assign(FsMetastore.prototype, {
 											return reject(error);
 										}
 										resolve(workspaceObj);
-									});						
+									});
 								} else {
 									resolve(workspaceObj);
 								}
@@ -259,6 +262,9 @@ Object.assign(FsMetastore.prototype, {
 						"name": metadata.FullName,
 						"properties": {}
 					};
+					if(metadata.ContentLocation){
+						workspace.location = metadata.ContentLocation;
+					}
 					// TODO Workspace properties is where tabs info goes, implement later
 					var propertyKeys = Object.keys(metadata.Properties);
 					propertyKeys.forEach(function(propertyKey) {
@@ -319,7 +325,7 @@ Object.assign(FsMetastore.prototype, {
 	},
 
 	getWorkspaceDir: function(workspaceId) {
-		if (workspaceId !== WORKSPACE_ID) {
+		if (!this._isSingleUser) {
 			var userId = metaUtil.decodeUserIdFromWorkspaceId(workspaceId);
 			return nodePath.join.apply(null, metaUtil.getWorkspacePath(this._options.workspaceDir, workspaceId, userId));	
 		}

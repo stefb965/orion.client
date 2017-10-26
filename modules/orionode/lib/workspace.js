@@ -42,7 +42,12 @@ module.exports = function(options) {
 		var workspaceJson;
 		var workspaceLocation = api.join(workspaceRoot, workspace.id);
 		var parentFileLocation = api.join(fileRoot, workspace.id);
-		var workspaceDir = fileUtil.getMetastore(req).getWorkspaceDir(workspace.id);
+		var workspaceDir;
+		if(typeof workspace.location === 'string'){
+			workspaceDir = workspace.location;
+		} else {
+			workspaceDir = fileUtil.getMetastore(req).getWorkspaceDir(workspace.id);
+		}
 		return fileUtil.getChildren(parentFileLocation, workspaceLocation, workspaceDir, workspaceDir, 1)
 		.then(function(children) {
 			children.forEach(function(child) {
@@ -102,6 +107,9 @@ module.exports = function(options) {
 				return writeError(404, res, "Workspace not found: " + rest);
 			}
 			getWorkspaceJson(req, workspace).then(function(workspaceJson){
+				if(options.configParams.isElectron){
+					options.workspaceDir = workspace.location;
+				}
 				api.writeResponse(null, res, null, workspaceJson, true);
 			});
 		});
@@ -119,11 +127,20 @@ module.exports = function(options) {
 				return writeError(400, res, "No Name or Slug provided");
 			}
 			workspaceId = req.body && req.body.Id;
-			store.createWorkspace(userId, {name: workspaceName, id: workspaceId}, function(err, workspace) {
+			var workspaceLocation = req.body && req.body.Location;
+			var workspaceData = {name: workspaceName, id: workspaceId};
+			if(workspaceLocation) {
+				workspaceData.location = workspaceLocation;
+			}			
+			store.createWorkspace(userId, workspaceData, function(err, workspace) {
 				if (err) {
 					return writeError(singleUser ? 403 : 400, res, err);
 				}
 				getWorkspaceJson(req, workspace).then(function(workspaceJson) {
+					if(options.configParams.isElectron){
+						options.workspaceDir = req.body.Location;
+						api.getOrionEE().emit("workspace-changed",[workspaceLocation,options.workspaceDir,workspaceId]);
+					}
 					return api.writeResponse(201, res, null, workspaceJson, true);
 				}).catch(function(err) {
 					api.writeResponse(400, res, null, err);

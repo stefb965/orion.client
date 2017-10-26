@@ -300,6 +300,7 @@ module.exports.start = function(startServer, configParams) {
 					nextWindow.webContents.executeJavaScript('createTab("' + url + '");');
 				}
 			});
+			nextWindow.webContents.openDevTools();
 			nextWindow.on("close", function(event) {
 				function exit() {
 					allPrefs = prefs.readElectronPrefs();
@@ -334,9 +335,11 @@ module.exports.start = function(startServer, configParams) {
 			});
 			var newTargetWorkspace;
 			var originalWorkspace;
+			var newTargetWorkspaceId;
 			api.getOrionEE().on("workspace-changed",function(workspaces){
 				newTargetWorkspace = workspaces[0];
 				originalWorkspace = workspaces[1];
+				newTargetWorkspaceId = workspaces[2];
 				// step1: update new pref's currentworkspace and recentworkspaces with newTargetWorkspace
 				// updateWorkspacePrefs(newTargetWorkspace);
 				// step2: collect tabs info
@@ -357,7 +360,7 @@ module.exports.start = function(startServer, configParams) {
 					}
 					nextWindow.webContents.executeJavaScript('setActiveIndex("' + activeIndex + '");');
 				}else{ // if user open that workspace for the first time
-					nextWindow.webContents.executeJavaScript('createTab("' + hostUrl + '");');
+					nextWindow.webContents.executeJavaScript('createTab("' + hostUrl + "/edit/edit.html#/workspace/anonymous-" + newTargetWorkspaceId + '");');
 				}
 			});
 			ipcMain.on("collected-tabs-info-changeworkspace", function(event, args, activeIndex){
