@@ -292,6 +292,10 @@ function registerElectronMenu(pageControlCallbacks){
 	Menu.setApplicationMenu(menu);
 }
 
+/**
+ * @name bindfocus
+ * @description Used in electron.js, used to put focus on active tab.
+ */
 function bindfocus(){
 	getActiveTab().focus();
 }
@@ -374,6 +378,11 @@ function clickTab(id){
 	var correspondingTab = document.querySelector('#'+correspondingTabId);
 	correspondingTab.click();
 }
+/**
+ * @name setActiveIndex
+ * @description Used in electron.js, to set active tab index
+ * @param index
+ */
 function setActiveIndex(index){
 	isInitiatingWorkspace = true;
 	activeIndex = index;

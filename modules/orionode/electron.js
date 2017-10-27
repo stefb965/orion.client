@@ -90,28 +90,6 @@ module.exports.start = function(startServer, configParams) {
 		return;
 	}
 	
-	function updateWorkspacePrefs(workspace, _allPrefs){
-		var allPrefs = _allPrefs ? _allPrefs : prefs.readElectronPrefs();
-		if (!allPrefs.user.workspace) allPrefs.user.workspace = {};
-		allPrefs.user.workspace.currentWorkspace = workspace;
-		if(!allPrefs.user.workspace.recentWorkspaces){
-			allPrefs.user.workspace.recentWorkspaces = [];
-		}
-		var recentWorkspaces = allPrefs.user && allPrefs.user.workspace && allPrefs.user.workspace.recentWorkspaces;
-		var RECENT_ARRAY_LENGTH = 10;
-		var oldIndex = recentWorkspaces.indexOf(workspace);
-		if(oldIndex !== -1){
-			allPrefs.user.workspace.recentWorkspaces.splice(oldIndex,1);
-		}
-		if(recentWorkspaces.length < RECENT_ARRAY_LENGTH){
-			allPrefs.user.workspace.recentWorkspaces.unshift(workspace);
-		}else if(recentWorkspaces.length === RECENT_ARRAY_LENGTH){
-			allPrefs.user.workspace.recentWorkspaces.pop();
-			allPrefs.user.workspace.recentWorkspaces.unshift(workspace);
-		}
-		prefs.writeElectronPrefs(allPrefs);
-	}
-	
 	function updateLastOpendTabsPrefs(tabs, activeIndex, originalWorkspace){
 		var allPrefs = prefs.readElectronPrefs();
 		var openedTabs = allPrefs.user && allPrefs.user.workspace && allPrefs.user.workspace.openedTabs;
@@ -157,7 +135,6 @@ module.exports.start = function(startServer, configParams) {
 				}else if(stats.isDirectory()){
 					configParams.workspace = readyToOpenDir;
 				}
-				// updateWorkspacePrefs(configParams.workspace, allPrefs);
 			}catch(e){}
 		}
 		if (process.platform === 'darwin') {
@@ -341,7 +318,6 @@ module.exports.start = function(startServer, configParams) {
 				originalWorkspace = workspaces[1];
 				newTargetWorkspaceId = workspaces[2];
 				// step1: update new pref's currentworkspace and recentworkspaces with newTargetWorkspace
-				// updateWorkspacePrefs(newTargetWorkspace);
 				// step2: collect tabs info
 				nextWindow.webContents.send('collect-tabs-info','changeworkspace');
 			});
@@ -359,8 +335,8 @@ module.exports.start = function(startServer, configParams) {
 						}
 					}
 					nextWindow.webContents.executeJavaScript('setActiveIndex("' + activeIndex + '");');
-				}else{ // if user open that workspace for the first time
-					nextWindow.webContents.executeJavaScript('createTab("' + hostUrl + "/edit/edit.html#/workspace/anonymous-" + newTargetWorkspaceId + '");');
+				}else{
+					nextWindow.webContents.executeJavaScript('createTab("' + hostUrl + (newTargetWorkspaceId ? "/edit/edit.html#/workspace/anonymous-" + newTargetWorkspaceId : '') + '");');
 				}
 			});
 			ipcMain.on("collected-tabs-info-changeworkspace", function(event, args, activeIndex){

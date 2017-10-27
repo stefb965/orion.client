@@ -107,7 +107,7 @@ module.exports = function(options) {
 				return writeError(404, res, "Workspace not found: " + rest);
 			}
 			getWorkspaceJson(req, workspace).then(function(workspaceJson){
-				if(options.configParams.isElectron){
+				if(options.configParams.isElectron && workspace.location){
 					options.workspaceDir = workspace.location;
 				}
 				api.writeResponse(null, res, null, workspaceJson, true);
@@ -137,7 +137,7 @@ module.exports = function(options) {
 					return writeError(singleUser ? 403 : 400, res, err);
 				}
 				getWorkspaceJson(req, workspace).then(function(workspaceJson) {
-					if(options.configParams.isElectron){
+					if(options.configParams.isElectron && req.body.Location){
 						options.workspaceDir = req.body.Location;
 						api.getOrionEE().emit("workspace-changed",[workspaceLocation,options.workspaceDir,workspaceId]);
 					}
