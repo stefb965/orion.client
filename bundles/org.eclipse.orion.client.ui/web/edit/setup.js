@@ -1145,7 +1145,7 @@ objects.mixin(EditorViewer.prototype, {
 				var tabHref = this.activateContext.computeNavigationHref(evt.metadata);
 			}
 			var workspaceId = evt.metadata.Id || (inputManager.getWorkspace() && inputManager.getWorkspace().Id);
-			if(typeof this.tabWidget.workspaceTabPrefs.getWorkspaceId() === 'undefined' || this.tabWidget.workspaceTabPrefs.getWorkspaceId() !== workspaceId) {
+			if(evt.metadata.hasOwnProperty("Projects") && (typeof this.tabWidget.workspaceTabPrefs.getWorkspaceId() === 'undefined' || this.tabWidget.workspaceTabPrefs.getWorkspaceId() !== workspaceId)) {
 				this.tabWidget.recordToCloseTabs();
 				this.tabWidget.workspaceTabPrefs.setWorkspaceId(workspaceId);
 				this.tabWidget.restoreTabsFromWSPrefs(function(){
