@@ -108,7 +108,11 @@ module.exports = function(options) {
 			}
 			getWorkspaceJson(req, workspace).then(function(workspaceJson){
 				if(options.configParams.isElectron && workspace.location){
+					var originalWorkspace = options.workspaceDir;
 					options.workspaceDir = workspace.location;
+					if(workspace.location !== originalWorkspace){
+						api.getOrionEE().emit("workspace-changed",[workspace.location,originalWorkspace,workspaceId]);
+					}
 				}
 				api.writeResponse(null, res, null, workspaceJson, true);
 			});
@@ -138,8 +142,11 @@ module.exports = function(options) {
 				}
 				getWorkspaceJson(req, workspace).then(function(workspaceJson) {
 					if(options.configParams.isElectron && req.body.Location){
+						var originalWorkspace = options.workspaceDir;
 						options.workspaceDir = req.body.Location;
-						api.getOrionEE().emit("workspace-changed",[workspaceLocation,options.workspaceDir,workspaceId]);
+						if(workspaceLocation !== originalWorkspace){
+							api.getOrionEE().emit("workspace-changed",[workspaceLocation, originalWorkspace, workspaceId]);
+						}
 					}
 					return api.writeResponse(201, res, null, workspaceJson, true);
 				}).catch(function(err) {
