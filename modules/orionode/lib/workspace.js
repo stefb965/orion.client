@@ -34,7 +34,6 @@ module.exports = function(options) {
 	router.use(responseTime({digits: 2, header: "X-Workspace-Response-Time", suffix: true}))
 	router.get('*', getWorkspace);
 	router.post('*', postWorkspace);
-	router.put('*', putWorkspace);
 	router.delete('*', deleteWorkspace);
 	return router;
 
@@ -111,7 +110,7 @@ module.exports = function(options) {
 					var originalWorkspace = options.workspaceDir;
 					options.workspaceDir = workspace.location;
 					if(workspace.location !== originalWorkspace){
-						api.getOrionEE().emit("workspace-changed",[workspace.location,originalWorkspace,workspaceId]);
+						api.getOrionEE().emit("workspace-changed", workspaceId);
 					}
 				}
 				api.writeResponse(null, res, null, workspaceJson, true);
@@ -145,7 +144,7 @@ module.exports = function(options) {
 						var originalWorkspace = options.workspaceDir;
 						options.workspaceDir = req.body.Location;
 						if(workspaceLocation !== originalWorkspace){
-							api.getOrionEE().emit("workspace-changed",[workspaceLocation, originalWorkspace, workspaceId]);
+							api.getOrionEE().emit("workspace-changed", workspaceId);
 						}
 					}
 					return api.writeResponse(201, res, null, workspaceJson, true);
@@ -194,16 +193,6 @@ module.exports = function(options) {
 				});
 			});
 		}
-	}
-
-	function putWorkspace(req, res) {
-		if (req.body.Location && singleUser) {
-			var originalLocation = options.workspaceDir;
-			options.workspaceDir = req.body.Location;
-			api.getOrionEE().emit("workspace-changed",[req.body.Location,originalLocation]);
-			return writeResponse(200, res);
-		}
-		return writeError(403, res);
 	}
 
 	function deleteWorkspace(req, res) {

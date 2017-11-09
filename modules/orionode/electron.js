@@ -9,11 +9,21 @@
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 /*eslint-env node, express, compression*/
+/*eslint-disable no-shadow-global */
 var fs = require('fs'),
 	os = require('os'),
 	api = require('./lib/api'),
 	path = require('path'),
-	prefs = require('./lib/prefs');
+	metastoreFactory = require('./lib/metastore/fs/store'),
+	MODEL = require('./lib/model/long_key_pref'),
+	prefs = require('./lib/prefs'),
+	metaUtil = require('./lib/metastore/util/metaUtil');
+
+var electronUserName = "anonymous";
+var CURRENT_WORKSPACE_PREF_KEY = "electron/currentWorkspace";
+var UPDATE_CHANNEL_NAME_PREF_KEY = "updateChannel/name";
+var WINDOWS_BOUNDS_PREF_KEY ="electron/windowBounds";
+
 
 module.exports.start = function(startServer, configParams) {
 	var electron = require('electron'),
@@ -21,47 +31,22 @@ module.exports.start = function(startServer, configParams) {
 		logger = log4js.getLogger('electron'),
 		autoUpdater = require('./lib/autoUpdater'),
 		spawn = require('child_process').spawn,
-		allPrefs = prefs.readElectronPrefs(),
 		feedURL = configParams["orion.autoUpdater.url"],
 		version = electron.app.getVersion(),
 		name = electron.app.getName(),
 		platform = os.platform(),
-		arch = os.arch();
-
+		arch = os.arch(),
+		allPrefs, updateDownloaded;
+		
+	var store = metastoreFactory({configParams:configParams});
 	configParams.isElectron = true;
 	electron.app.buildId = configParams["orion.buildId"];
-
-	if (feedURL) {
-		var updateChannel = allPrefs.user && allPrefs.user.updateChannel && allPrefs.user.updateChannel.name ? allPrefs.user.updateChannel.name : configParams["orion.autoUpdater.defaultChannel"],
-			latestUpdateURL;
-		if (platform === "linux") {
-			latestUpdateURL = feedURL + '/download/channel/' + updateChannel + '/linux';
-		} else {
-			latestUpdateURL = feedURL + '/update/channel/' + updateChannel + '/' + platform + "_" + arch + '/' + version;
-		}
-		var resolveURL = feedURL + '/api/resolve?platform=' + platform + '&channel=' + updateChannel;
-		
-		logger.debug("resolveURL", resolveURL);
-		logger.debug("latestUpdateURL", latestUpdateURL);
-		autoUpdater.setResolveURL(resolveURL);
-		autoUpdater.setFeedURL(latestUpdateURL);
-	}
-
-	var handleSquirrelEvent = function() {
+	
+	function handleSquirrelEvent(){
 		if (process.argv.length === 1 || os.platform() !== 'win32') { // No squirrel events to handle
 			return false;
 		}
-
-		var	target = path.basename(process.execPath);
-
-		function executeSquirrelCommand(args, done) {
-			var updateDotExe = path.resolve(path.dirname(process.execPath), '..', 'Update.exe');
-			var child = spawn(updateDotExe, args, { detached: true });
-			child.on('close', function() {
-				done();
-			});
-		}
-
+		var target = path.basename(process.execPath);
 		var squirrelEvent = process.argv[1];
 		switch (squirrelEvent) {
 			case '--squirrel-install':
@@ -83,60 +68,147 @@ module.exports.start = function(startServer, configParams) {
 				return true;
 		}
 		return false;
-	};
+	}
+	
+	function executeSquirrelCommand(args, done) {
+		var updateDotExe = path.resolve(path.dirname(process.execPath), '..', 'Update.exe');
+		var child = spawn(updateDotExe, args, { detached: true });
+		child.on('close', function() {
+			done();
+		});
+	}
+	
+	function makeDevToolMenuItem(label, accelerator){
+		return {
+			label: label,
+			submenu: [
+				{ label: "openDevTool", accelerator: accelerator, click: function (item, focusedWindow) {
+					if (focusedWindow) focusedWindow.webContents.toggleDevTools();
+				}}
+			]
+		};
+	}
+	
+	function scheduleUpdateChecks () {
+		var checkInterval = (parseInt(configParams["orion.autoUpdater.checkInterval"], 10) || 30) * 1000 * 60;
+		var resolveNewVersion = function() {
+			autoUpdater.resolveNewVersion(false);
+		};
+		setInterval(resolveNewVersion, checkInterval);
+	}
+	
+	function createWindow(url){
+		var Url = require("url");
+		var windowOptions = allPrefs.get(WINDOWS_BOUNDS_PREF_KEY);
+		if(windowOptions === MODEL.NOT_EXIST){
+			windowOptions = {width: 1024, height: 800};
+		}
+		windowOptions.title = "Orion";
+		windowOptions.icon = "icon/256x256/orion.png";
+		var nextWindow = new electron.BrowserWindow(windowOptions);
+		nextWindow.setMenuBarVisibility(false);	// This line only work for Window and Linux
+		if (windowOptions.maximized) {
+			nextWindow.maximize();
+		}
+		nextWindow.loadURL("file:///" + __dirname + "/lib/main.html#" + encodeURI(url));
+		nextWindow.webContents.on("new-window", /* @callback */ function(event, url){
+			event.preventDefault();
+			if (false === undefined) {// Always open new tabs for now
+				createWindow(url);
+			} 
+			else if (Url.parse(url).hostname !== "localhost") {
+				electron.shell.openExternal(url);
+			}
+			else {
+				nextWindow.webContents.executeJavaScript('createTab("' + url + '");');
+			}
+		});
+		nextWindow.webContents.openDevTools();
+		nextWindow.on("close", function(event) {
+			event.preventDefault();
+			store.getUser(electronUserName,function(err, data){
+				if(err){
+					logger.error(err);
+				}
+				var prefs = new MODEL(data.properties || {});
+				var windowBounds = nextWindow.getBounds();
+				windowBounds.maximized = nextWindow.isMaximized();
+				prefs.set(WINDOWS_BOUNDS_PREF_KEY, windowBounds);
+				store.updateUser(electronUserName, {properties:prefs.getJson()}, function(err){
+					if(err) {
+						logger.error(err);
+					}
+					log4js.shutdown(function(){
+						if (updateDownloaded) {
+							nextWindow.webContents.session.clearCache(function() {
+								nextWindow.destroy();
+							});
+						}else{
+							nextWindow.destroy();
+						}
+					});
+				});
+				
+			});
+		});
+		nextWindow.on("focus", function(event) {
+			nextWindow.webContents.executeJavaScript('bindfocus();');
+		});
+		nextWindow.webContents.once("did-frame-finish-load", function () {
+			if (feedURL) {
+				autoUpdater.resolveNewVersion(false);
+				scheduleUpdateChecks();
+			}
+		});
+		api.getOrionEE().on("workspace-changed",function(workspaceId){
+			nextWindow.webContents.executeJavaScript('closeNoneEditTabs();');
+			var url = "http://localhost:" + configParams.port + "/git/git-repository.html#,workspace=/workspace/" + workspaceId;
+			nextWindow.webContents.executeJavaScript('createTab("' + url + '");');
+			nextWindow.webContents.executeJavaScript('setActiveIndex("' + 0 + '");');
+		});
+		return nextWindow;
+	} // end of createWindow()
+	// End of functions declaration
+
+
+	var userPrefs = prefs.readElectronPrefs();
+	allPrefs = new MODEL(userPrefs.Properties || {});
+
+	if (feedURL) {
+		var updateChannel = allPrefs.get(UPDATE_CHANNEL_NAME_PREF_KEY), latestUpdateURL;
+		if(updateChannel === MODEL.NOT_EXIST){
+			updateChannel = configParams["orion.autoUpdater.defaultChannel"];
+		}
+		if (platform === "linux") {
+			latestUpdateURL = feedURL + '/download/channel/' + updateChannel + '/linux';
+		} else {
+			latestUpdateURL = feedURL + '/update/channel/' + updateChannel + '/' + platform + "_" + arch + '/' + version;
+		}
+		var resolveURL = feedURL + '/api/resolve?platform=' + platform + '&channel=' + updateChannel;
+		
+		logger.debug("resolveURL", resolveURL);
+		logger.debug("latestUpdateURL", latestUpdateURL);
+		autoUpdater.setResolveURL(resolveURL);
+		autoUpdater.setFeedURL(latestUpdateURL);
+	}
 
 	if (handleSquirrelEvent()) {
 		// Squirrel event handled and app will exit in 1000ms
 		return;
 	}
-	
-	function updateLastOpendTabsPrefs(tabs, activeIndex, originalWorkspace){
-		var allPrefs = prefs.readElectronPrefs();
-		var openedTabs = allPrefs.user && allPrefs.user.workspace && allPrefs.user.workspace.openedTabs;
-		if(!openedTabs){
-			((allPrefs.user || (allPrefs.user = {})).workspace || (allPrefs.user.workspace = {})).openedTabs || (allPrefs.user.workspace.openedTabs={});
-		}
-		var currentWorkspace = (originalWorkspace ? originalWorkspace : allPrefs.user.workspace.currentWorkspace) || configParams.workspace;
-		allPrefs.user.workspace.openedTabs[currentWorkspace] = {};
-		allPrefs.user.workspace.openedTabs[currentWorkspace].tabs = tabs;
-		allPrefs.user.workspace.openedTabs[currentWorkspace].activeIndex = activeIndex;
-		prefs.writeElectronPrefs(allPrefs);
-	}
 
-	var readyToOpenDir, relativeFileUrl;
+	var readyToOpenPath, relativeFileUrl;
 	electron.app.on('open-file', function(event, path) {
-		readyToOpenDir = path;
+		readyToOpenPath = path;
 	});
 	electron.app.on('ready', function() {
-		var updateDownloaded  = false,
-			updateDialog = false,
+		var updateDialog = false,
 			linuxDialog = false,
-			prefsWorkspace = allPrefs.user && allPrefs.user.workspace && allPrefs.user.workspace.currentWorkspace,
-			recentWorkspaces = allPrefs.user && allPrefs.user.workspace && allPrefs.user.workspace.recentWorkspaces,
+			prefsWorkspace = allPrefs.get(CURRENT_WORKSPACE_PREF_KEY),
 			Menu = electron.Menu;
 			
-		if (prefsWorkspace) {
-			configParams.workspace = prefsWorkspace;
-		}
-		if(readyToOpenDir){
-			try{
-				var stats = fs.statSync(readyToOpenDir);
-				if(stats.isFile()){
-					var parentDir = path.dirname(readyToOpenDir);
-					var similarity = 0;
-					configParams.workspace = parentDir;
-					recentWorkspaces.forEach(function(eachRecent){
-						if(parentDir.lastIndexOf(eachRecent,0) === 0 && eachRecent.length > similarity){
-							similarity = eachRecent.length;
-							return configParams.workspace = eachRecent;
-						}
-					});
-					relativeFileUrl = api.toURLPath(readyToOpenDir.substring(configParams.workspace.length));
-				}else if(stats.isDirectory()){
-					configParams.workspace = readyToOpenDir;
-				}
-			}catch(e){}
-		}
+		updateDownloaded  = false;
+			
 		if (process.platform === 'darwin') {
 			if (!Menu.getApplicationMenu()) {
 				var template = [{
@@ -195,16 +267,7 @@ module.exports.start = function(startServer, configParams) {
 			menu.append(new electron.MenuItem(makeDevToolMenuItem("DevtoolforWin32","F12")));
 			Menu.setApplicationMenu(menu);
 		}
-		function makeDevToolMenuItem(label, accelerator){
-			return {
-				label: label,
-				submenu: [
-					{ label: "openDevTool", accelerator: accelerator, click: function (item, focusedWindow) {
-			          if (focusedWindow) focusedWindow.webContents.toggleDevTools();
-			        }}
-				]
-			}
-		}
+		
 		autoUpdater.on("error", function(error) {
 			logger.error(error);
 		});
@@ -245,141 +308,66 @@ module.exports.start = function(startServer, configParams) {
 				updateDialog = true;
 			}
 		});
-
-		function scheduleUpdateChecks () {
-			var checkInterval = (parseInt(configParams["orion.autoUpdater.checkInterval"], 10) || 30) * 1000 * 60;
-			var resolveNewVersion = function() {
-				autoUpdater.resolveNewVersion(false);
-			}.bind(this);
-			setInterval(resolveNewVersion, checkInterval);
+		
+		if (prefsWorkspace !== MODEL.NOT_EXIST) {
+			configParams.workspace = prefsWorkspace;
 		}
-		function createWindow(url){
-			var Url = require("url");
-			var windowOptions = allPrefs.windowBounds || {width: 1024, height: 800};
-			windowOptions.title = "Orion";
-			windowOptions.icon = "icon/256x256/orion.png";
-			var nextWindow = new electron.BrowserWindow(windowOptions);
-			var ipcMain  = electron.ipcMain;
-			nextWindow.setMenuBarVisibility(false);	// This line only work for Window and Linux
-			if (windowOptions.maximized) {
-				nextWindow.maximize();
-			}
-			nextWindow.loadURL("file:///" + __dirname + "/lib/main.html#" + encodeURI(url));
-			nextWindow.webContents.on("new-window", /* @callback */ function(event, url, frameName, disposition, options){
-				event.preventDefault();
-				if (false === undefined) {// Always open new tabs for now
-					createWindow(url);
-				} 
-				else if (Url.parse(url).hostname !== "localhost") {
-					electron.shell.openExternal(url);
-				}
-				else {
-					nextWindow.webContents.executeJavaScript('createTab("' + url + '");');
-				}
-			});
-			nextWindow.webContents.openDevTools();
-			nextWindow.on("close", function(event) {
-				function exit() {
-					allPrefs = prefs.readElectronPrefs();
-					allPrefs.windowBounds = nextWindow.getBounds();
-					allPrefs.windowBounds.maximized = nextWindow.isMaximized();
-					prefs.writeElectronPrefs(allPrefs);
-					log4js.shutdown(function(){
-						if (updateDownloaded) {
-							nextWindow.webContents.session.clearCache(function() {
-								nextWindow.destroy();
-							});
-						}else{
-							nextWindow.destroy();
-						}
+		var waitFor;
+		if(readyToOpenPath){
+			try{
+				var stats = fs.statSync(readyToOpenPath);
+				if(stats.isFile()){
+					var parentDir = path.dirname(readyToOpenPath);
+					var similarity = 0;
+					configParams.workspace = parentDir;
+					waitFor = metaUtil.getWorkspaceMeta(userPrefs.WorkspaceIds, store)
+					.then(function(workspaceInfos){
+						workspaceInfos.forEach(function(each){
+							var location = each.Name;
+							if(parentDir.lastIndexOf(location,0) === 0 && location.length > similarity){
+								similarity = location.length;
+								// find the closest existing workspace path, and use that as the orion current workspace
+								return configParams.workspace = location;
+							}
+						});
+						relativeFileUrl = api.toURLPath(readyToOpenPath.substring(configParams.workspace.length));
+						return;
 					});
+				}else if(stats.isDirectory()){
+					configParams.workspace = readyToOpenPath;
 				}
-				event.preventDefault();
-				nextWindow.webContents.send('collect-tabs-info','closeorion');	
-				ipcMain.on("collected-tabs-info-closeorion", function(event, args, activeIndex){
-					updateLastOpendTabsPrefs(args, activeIndex);
-					exit();
+			}catch(e){}
+		}
+		
+		Promise.resolve(waitFor)
+		.then(function(){
+			startServer(function() {
+				var mainWindow,
+					hostUrl = "http://localhost:" + configParams.port,
+					toOpen, 
+					activeIndex = 0;
+				
+				if(relativeFileUrl){
+					var fileUrl = hostUrl + "/edit/edit.html#/file" + relativeFileUrl;
+					toOpen = "edit/edit.html#/file" + relativeFileUrl;
+				}
+				if(readyToOpenPath && prefsWorkspace !== configParams.workspace){
+					mainWindow = createWindow(fileUrl ? fileUrl : hostUrl);
+				}else{
+					if(toOpen){
+						mainWindow = createWindow(hostUrl + "/" + toOpen); 
+						mainWindow.webContents.executeJavaScript('setActiveIndex("' + activeIndex + '");');
+					}else{ // if user open Orion for the first time
+						mainWindow = createWindow(hostUrl);
+					}
+				}
+				mainWindow.on('closed', function() {
+					mainWindow = null;
 				});
 			});
-			nextWindow.on("focus", function(event) {
-				nextWindow.webContents.executeJavaScript('bindfocus();');
-			});
-			nextWindow.webContents.once("did-frame-finish-load", function () {
-				if (feedURL) {
-					autoUpdater.resolveNewVersion(false);
-					scheduleUpdateChecks();
-				}
-			});
-			var newTargetWorkspace;
-			var originalWorkspace;
-			var newTargetWorkspaceId;
-			api.getOrionEE().on("workspace-changed",function(workspaces){
-				newTargetWorkspace = workspaces[0];
-				originalWorkspace = workspaces[1];
-				newTargetWorkspaceId = workspaces[2];
-				// step1: update new pref's currentworkspace and recentworkspaces with newTargetWorkspace
-				// step2: collect tabs info
-				nextWindow.webContents.send('collect-tabs-info','changeworkspace');
-			});
-			api.getOrionEE().on("open-tabs", function(){
-				var allPrefs = prefs.readElectronPrefs();
-				var openedTabs = allPrefs.user && allPrefs.user.workspace && allPrefs.user.workspace.openedTabs && allPrefs.user.workspace.openedTabs[newTargetWorkspace] && allPrefs.user.workspace.openedTabs[newTargetWorkspace]["tabs"] || [];
-				var activeIndex = allPrefs.user && allPrefs.user.workspace && allPrefs.user.workspace.openedTabs && allPrefs.user.workspace.openedTabs[newTargetWorkspace] && allPrefs.user.workspace.openedTabs[newTargetWorkspace]["activeIndex"] || 0;
-				var hostUrl = "http://localhost:" + configParams.port;
-				// step4: open tabs of new current workspace if any saved before
-				if(openedTabs.length > 0 && openedTabs[0] !== 'about:blank'){
-					nextWindow.webContents.executeJavaScript('createTab("' + hostUrl + "/" + openedTabs[0] + '");');
-					for(var i = 1; i < openedTabs.length; i++ ){
-						if(openedTabs[i] !== 'about:blank'){
-							nextWindow.webContents.executeJavaScript('window.open("' + hostUrl + "/" + openedTabs[i] + '");');
-						}
-					}
-					nextWindow.webContents.executeJavaScript('setActiveIndex("' + activeIndex + '");');
-				}else{
-					nextWindow.webContents.executeJavaScript('createTab("' + hostUrl + (newTargetWorkspaceId ? "/edit/edit.html#/workspace/anonymous-" + newTargetWorkspaceId : '') + '");');
-				}
-			});
-			ipcMain.on("collected-tabs-info-changeworkspace", function(event, args, activeIndex){
-				updateLastOpendTabsPrefs(args, activeIndex, originalWorkspace);
-				// step3: close all tabs of last workspace
-				nextWindow.webContents.executeJavaScript('closeAllTabs();');
-				api.getOrionEE().emit("open-tabs");
-			});
-			return nextWindow;
-		}
-		startServer(function() {
-			var mainWindow,
-			 	hostUrl = "http://localhost:" + configParams.port,
-			 	openedTabs = allPrefs.user && allPrefs.user.workspace && allPrefs.user.workspace.openedTabs && allPrefs.user.workspace.openedTabs[prefsWorkspace] && allPrefs.user.workspace.openedTabs[prefsWorkspace]["tabs"] || [],
-				activeIndex = allPrefs.user && allPrefs.user.workspace && allPrefs.user.workspace.openedTabs && allPrefs.user.workspace.openedTabs[prefsWorkspace] && allPrefs.user.workspace.openedTabs[prefsWorkspace]["activeIndex"] || 0;
-				
-			if(relativeFileUrl){
-				var fileUrl = hostUrl + "/edit/edit.html#/file" + relativeFileUrl;
-				openedTabs.unshift("edit/edit.html#/file" + relativeFileUrl);
-				activeIndex = 0;
-			}
-			if(readyToOpenDir && prefsWorkspace !== configParams.workspace){
-				mainWindow = createWindow(fileUrl ? fileUrl : hostUrl);
-			}else{
-				if(openedTabs.length > 0 && openedTabs[0] !== 'about:blank'){
-					mainWindow = createWindow(hostUrl + "/" + openedTabs[0]); 
-					for(var i = 1; i < openedTabs.length; i++ ){
-						if(openedTabs[i] !== 'about:blank'){
-							mainWindow.webContents.executeJavaScript('window.open("' + hostUrl + "/" + openedTabs[i] + '");');
-						}
-					}
-					mainWindow.webContents.executeJavaScript('setActiveIndex("' + activeIndex + '");');
-				}else{ // if user open Orion for the first time
-					mainWindow = createWindow(hostUrl);
-				}
-			}
-			mainWindow.on('closed', function() {
-				mainWindow = null;
-			});
-		});
+		})
 	});
 	electron.app.on('window-all-closed', function() {
-		electron.app.quit();	
+		electron.app.quit();
 	});
-	
 };

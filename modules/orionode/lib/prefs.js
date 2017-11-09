@@ -28,12 +28,11 @@ var api = require('./api'),
 module.exports = {};
 
 module.exports.readElectronPrefs = readElectronPrefs;
-module.exports.writeElectronPrefs = writeElectronPrefs;
 module.exports.readPrefNode = readPrefNode;
 
 var NOT_EXIST;
 var MODEL;
-var PREF_FILENAME = PREF_FILENAME='user.json';
+var PREF_FILENAME = 'user.json';
 
 module.exports.router = function(options) {
 	options.configParams = options.configParams || {};
@@ -255,7 +254,7 @@ function update(req, prefs, callback){
 };
 
 function getElectronPrefsFileName(){
-	return nodePath.join(os.homedir(), '.orion', "orion_Electron.json");
+	return nodePath.join(os.homedir(), '.orion', PREF_FILENAME);
 }
 function readPrefNode(options, path, properties) {
 	options.configParams = options.configParams || {};
@@ -274,8 +273,4 @@ function readElectronPrefs(){
 		return JSON.parse(content);
 	} catch (e) {}
 	return {};
-}
-
-function writeElectronPrefs(contents){
-	fs.writeFileSync(getElectronPrefsFileName(), JSON.stringify(contents, null, 2), 'utf8');
 }

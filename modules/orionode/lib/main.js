@@ -72,10 +72,12 @@ function redrawButtons() {
 	};
 }
 
-function closeAllTabs(){
+function closeNoneEditTabs(){
 	var tabbuttons = document.querySelectorAll(".tabItem");
 	for (var j = 0; j < tabbuttons.length; j++) {
-		tabbuttons[j].lastChild.click();
+		if(tabbuttons[j].firstChild && tabbuttons[j].firstChild.currentSrc.indexOf("edit") === -1){ //Close all non edit tabs
+			tabbuttons[j].lastChild.click();
+		}
 	}
 }
 
@@ -260,7 +262,6 @@ function load() {
 		}, 50);
 	});
 	registerContextMenu();
-	collectTabsUrl();
 }
 
 function registerElectronMenu(pageControlCallbacks){
@@ -484,18 +485,4 @@ function getPosition(e) {
 		x: posx,
 		y: posy
 	};
-}
-function collectTabsUrl(){
-	var ipcRenderer = electron.ipcRenderer;
-	ipcRenderer.on('collect-tabs-info',function(event, arg){
-		var iframes = document.querySelectorAll(".tabContent");
-		var activeTabIndex = 0;
-		var tabUrls = Array.prototype.map.call(iframes,function(iframe,index){
-			if(iframe.classList.contains("active")){
-				activeTabIndex = index;
-			}
-			return iframe.contentWindow.location.href.replace(/http:\/\/localhost:\w+\//, "");
-		});
-		ipcRenderer.send("collected-tabs-info-" + arg, tabUrls, activeTabIndex);
-	});
 }
