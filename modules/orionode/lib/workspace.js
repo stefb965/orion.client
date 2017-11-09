@@ -134,7 +134,12 @@ module.exports = function(options) {
 			var workspaceData = {name: workspaceName, id: workspaceId};
 			if(workspaceLocation) {
 				workspaceData.location = workspaceLocation;
-			}			
+			}
+			if(options.configParams.isElectron && workspaceData.name === "Orion Content"){
+				// for Electron, don't create 'Orion Content' workspace, instead use options.workspaceDir as the name and location
+				workspaceData.name = options.workspaceDir;
+				workspaceData.location = options.workspaceDir;
+			}
 			store.createWorkspace(userId, workspaceData, function(err, workspace) {
 				if (err) {
 					return writeError(singleUser ? 403 : 400, res, err);

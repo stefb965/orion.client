@@ -301,7 +301,7 @@ function bindfocus(){
 	getActiveTab().focus();
 }
 
-function createTab(url) {
+function createTab(url, doNotOpen) {
 	var iframes = document.querySelectorAll(".tabContent");
 	var urlSegs = url.split("#");
 	var potentialExsitingIframe = Array.prototype.find.call(iframes,function(iframe){
@@ -358,7 +358,7 @@ function createTab(url) {
 				var activeClassName = "context-menu-items-open";
 				menu.classList.remove(activeClassName);
 			});
-			if(isInitiatingWorkspace){
+			if(isInitiatingWorkspace && !doNotOpen){
 				var tabbuttons = document.querySelectorAll(".tabItem");
 				tabbuttons[activeIndex] && tabbuttons[activeIndex].click();
 				isInitiatingWorkspace = false;
@@ -367,7 +367,10 @@ function createTab(url) {
 		document.body.appendChild(iframe);
 		var srcUrl = nodeUrl.parse(url);
 		if(srcUrl.pathname === "/" || srcUrl.pathname.endsWith(".html")){
-			addNewTab(id, iframe).click();
+			var newTab = addNewTab(id, iframe)
+			if(!doNotOpen){
+				newTab.click();
+			}
 		}else{
 			needToCleanFrames.push(iframe);
 		}

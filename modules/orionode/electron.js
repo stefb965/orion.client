@@ -163,11 +163,28 @@ module.exports.start = function(startServer, configParams) {
 		api.getOrionEE().on("workspace-changed",function(workspaceId){
 			nextWindow.webContents.executeJavaScript('closeNoneEditTabs();');
 			var url = "http://localhost:" + configParams.port + "/git/git-repository.html#,workspace=/workspace/" + workspaceId;
-			nextWindow.webContents.executeJavaScript('createTab("' + url + '");');
-			nextWindow.webContents.executeJavaScript('setActiveIndex("' + 0 + '");');
+			nextWindow.webContents.executeJavaScript('createTab("' + url + '", true);');
 		});
 		return nextWindow;
 	} // end of createWindow()
+	
+	function createWorkspaceForDir(workspaceLocation){
+		var pathSegs = workspaceLocation.split(/[\\\/]/);
+		var folderName = pathSegs[pathSegs.length - 1];
+		var workspaceId = Date.now() + folderName;
+		var workspaceData = {name: workspaceLocation, id: workspaceId, location: workspaceLocation};
+		return new Promise(function(fulfill, reject){
+			store.createWorkspace(electronUserName, workspaceData, function(err, workspace) {
+				if (err) {
+					logger.error(err);
+					return reject();
+				}
+				return fulfill();
+			});
+		});
+	}
+
+	
 	// End of functions declaration
 
 
@@ -331,10 +348,15 @@ module.exports.start = function(startServer, configParams) {
 							}
 						});
 						relativeFileUrl = api.toURLPath(readyToOpenPath.substring(configParams.workspace.length));
+						if(configParams.workspace === parentDir){
+							// The case where have to create a new workspace metadata
+							return createWorkspaceForDir(configParams.workspace);
+						}
 						return;
 					});
 				}else if(stats.isDirectory()){
 					configParams.workspace = readyToOpenPath;
+					waitFor = createWorkspaceForDir(configParams.workspace);
 				}
 			}catch(e){}
 		}
