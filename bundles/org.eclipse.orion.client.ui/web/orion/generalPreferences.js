@@ -32,7 +32,7 @@ define([
 		enableProjectCreation: true,
 		enableLinkProjectCreation: true,
 		enableRefreshButton: false,
-		enableDebugger: false
+		enableDebugger: util.isElectron ? true: false
 	};
 
 	function GeneralPreferences(preferences, callback) {

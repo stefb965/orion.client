@@ -209,12 +209,17 @@ module.exports = function(options) {
 			if (err) {
 				return writeError(singleUser ? 403 : 400, res, err);
 			}
-			fileUtil.rumRuff(file.workspaceDir, function(err) {
-				if (err) {
-					return writeError(400, res, err);
-				}
+			if(!options.configParams.isElectron){
+				fileUtil.rumRuff(file.workspaceDir, function(err) {
+					if (err) {
+						return writeError(400, res, err);
+					}
+					return writeResponse(204, res);
+				});
+			} else {
+				// In electron case, don't realy remove the directory when deleting a workspace.
 				return writeResponse(204, res);
-			});
+			}
 		});
 	}
 };
