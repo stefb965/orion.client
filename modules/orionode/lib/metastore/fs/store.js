@@ -209,7 +209,7 @@ Object.assign(FsMetastore.prototype, {
 							function updateUserWorkspaceAccessRight(){
 								// Update workspaceIds in user's metadata only if it's new
 								if(metadata.WorkspaceIds.indexOf(workspaceId) === -1){
-									metadata.WorkspaceIds.push(workspaceId);
+									metadata.WorkspaceIds.unshift(workspaceId);// Always put new workspace Id in the begining, mainly to server electron
 									var workspaceUserRights = accessRights.createWorkspaceAccess(workspaceId);
 									metadata.Properties.UserRights = (metadata.Properties.UserRights || accessRights.createUserAccess(userId)).concat(workspaceUserRights);
 									this._updateUserMetadata(userId,  metadata, function(error) {
@@ -491,13 +491,15 @@ Object.assign(FsMetastore.prototype, {
 					
 					// userData.properties contains all the properties, not only the ones that are changed, 
 					// because of locking, it's safe to say the properties hasn't been changed by other operations
-					metadata.Properties = userData.properties;
+					userData.properties && (metadata.Properties = userData.properties);
 					// update other userData 
 					userData.fullname && (metadata.FullName = userData.fullname);
 					userData.password && (metadata.Properties.Password = userData.password);  // TODO need to encrypt password
 					userData.email && (metadata.Properties.Email = userData.email);
 					userData.login_timestamp && (metadata.Properties.LastLoginTimestamp = userData.login_timestamp.getTime());
 					userData.username && (metadata.UserName = userData.username);
+					
+					userData.workspaceIds && (metadata.WorkspaceIds = userData.workspaceIds);
 		
 					// TODO update isAuthenticated
 		

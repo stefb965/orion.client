@@ -80,6 +80,12 @@ function closeNoneEditTabs(){
 		}
 	}
 }
+function closeAllTabs(){
+	var tabbuttons = document.querySelectorAll(".tabItem");
+	for (var j = 0; j < tabbuttons.length; j++) {
+		tabbuttons[j].lastChild.click();
+	}
+}
 
 function addNewTab(id, iframe) {
 	var bar = document.querySelector("#bar");
@@ -301,6 +307,13 @@ function bindfocus(){
 	getActiveTab().focus();
 }
 
+/**
+ * @name createTab
+ * @description description
+ * @param url
+ * @param {boolean}doNotOpen To click this tab after creation to open it or not
+ * @returns returns
+ */
 function createTab(url, doNotOpen) {
 	var iframes = document.querySelectorAll(".tabContent");
 	var urlSegs = url.split("#");

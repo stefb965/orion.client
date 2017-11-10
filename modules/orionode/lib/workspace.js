@@ -110,7 +110,7 @@ module.exports = function(options) {
 					var originalWorkspace = options.workspaceDir;
 					options.workspaceDir = workspace.location;
 					if(workspace.location !== originalWorkspace){
-						api.getOrionEE().emit("workspace-changed", workspaceId);
+						api.getOrionEE().emit("workspace-changed", [workspaceId, true]);
 					}
 				}
 				api.writeResponse(null, res, null, workspaceJson, true);
@@ -138,6 +138,7 @@ module.exports = function(options) {
 			if(options.configParams.isElectron && workspaceData.name === "Orion Content"){
 				// for Electron, don't create 'Orion Content' workspace, instead use options.workspaceDir as the name and location
 				workspaceData.name = options.workspaceDir;
+				workspaceData.id = "Orion Content";
 				workspaceData.location = options.workspaceDir;
 			}
 			store.createWorkspace(userId, workspaceData, function(err, workspace) {
@@ -149,7 +150,7 @@ module.exports = function(options) {
 						var originalWorkspace = options.workspaceDir;
 						options.workspaceDir = req.body.Location;
 						if(workspaceLocation !== originalWorkspace){
-							api.getOrionEE().emit("workspace-changed", workspaceId);
+							api.getOrionEE().emit("workspace-changed", [workspaceJson.Id, false]);
 						}
 					}
 					return api.writeResponse(201, res, null, workspaceJson, true);

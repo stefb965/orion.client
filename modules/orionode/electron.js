@@ -20,7 +20,6 @@ var fs = require('fs'),
 	metaUtil = require('./lib/metastore/util/metaUtil');
 
 var electronUserName = "anonymous";
-var CURRENT_WORKSPACE_PREF_KEY = "electron/currentWorkspace";
 var UPDATE_CHANNEL_NAME_PREF_KEY = "updateChannel/name";
 var WINDOWS_BOUNDS_PREF_KEY ="electron/windowBounds";
 
@@ -160,10 +159,35 @@ module.exports.start = function(startServer, configParams) {
 				scheduleUpdateChecks();
 			}
 		});
-		api.getOrionEE().on("workspace-changed",function(workspaceId){
-			nextWindow.webContents.executeJavaScript('closeNoneEditTabs();');
-			var url = "http://localhost:" + configParams.port + "/git/git-repository.html#,workspace=/workspace/" + workspaceId;
-			nextWindow.webContents.executeJavaScript('createTab("' + url + '", true);');
+		api.getOrionEE().on("workspace-changed", function(dataArray){
+			var workspaceId = dataArray[0];
+			var needToUpdateWorkspaceIdArray = dataArray[1];
+			if(needToUpdateWorkspaceIdArray){
+				// This is when user switch between workspace
+				// Update workspaceID array order in user prefs
+				store.getUser(electronUserName,function(err, data){
+					if(err){
+						logger.error(err);
+					}
+					data.workspaces.splice(data.workspaces.indexOf(workspaceId), 1);
+					data.workspaces.unshift(workspaceId);
+					store.updateUser(electronUserName, {workspaceIds:data.workspaces}, function(err){
+						if(err) {
+							logger.error(err);
+						}
+						nextWindow.webContents.executeJavaScript('closeNoneEditTabs();');
+						var url = "http://localhost:" + configParams.port + "/git/git-repository.html#,workspace=/workspace/" + workspaceId;
+						nextWindow.webContents.executeJavaScript('createTab("' + url + '", true);');
+					});
+				});
+			} else {
+				// This is when user open a new folder ,so need to re-create edit page as well to refresh "swtich to" list
+				nextWindow.webContents.executeJavaScript('closeAllTabs();');
+				var hostUrl = "http://localhost:" + configParams.port;
+				nextWindow.webContents.executeJavaScript('createTab("' + hostUrl + "/edit/edit.html#/workspace/" + workspaceId + '");');
+				var giturl = hostUrl + "/git/git-repository.html#,workspace=/workspace/" + workspaceId;
+				nextWindow.webContents.executeJavaScript('createTab("' + giturl + '", true);');
+			}
 		});
 		return nextWindow;
 	} // end of createWindow()
@@ -183,10 +207,7 @@ module.exports.start = function(startServer, configParams) {
 			});
 		});
 	}
-
-	
 	// End of functions declaration
-
 
 	var userPrefs = prefs.readElectronPrefs();
 	allPrefs = new MODEL(userPrefs.Properties || {});
@@ -221,7 +242,7 @@ module.exports.start = function(startServer, configParams) {
 	electron.app.on('ready', function() {
 		var updateDialog = false,
 			linuxDialog = false,
-			prefsWorkspace = allPrefs.get(CURRENT_WORKSPACE_PREF_KEY),
+			mostRecentWorkspaceId = userPrefs.WorkspaceIds && userPrefs.WorkspaceIds[0],
 			Menu = electron.Menu;
 			
 		updateDownloaded  = false;
@@ -325,11 +346,18 @@ module.exports.start = function(startServer, configParams) {
 				updateDialog = true;
 			}
 		});
-		
-		if (prefsWorkspace !== MODEL.NOT_EXIST) {
-			configParams.workspace = prefsWorkspace;
-		}
 		var waitFor;
+		if (mostRecentWorkspaceId) {
+			waitFor = new Promise(function(fulfill, reject){
+				store.getWorkspace(mostRecentWorkspaceId, function(err,workspaceJson){
+					if (err){
+						return reject(err);
+					}
+					configParams.workspace = workspaceJson.location;
+					return fulfill();
+				});
+			});
+		}
 		if(readyToOpenPath){
 			try{
 				var stats = fs.statSync(readyToOpenPath);
@@ -337,26 +365,30 @@ module.exports.start = function(startServer, configParams) {
 					var parentDir = path.dirname(readyToOpenPath);
 					var similarity = 0;
 					configParams.workspace = parentDir;
-					waitFor = metaUtil.getWorkspaceMeta(userPrefs.WorkspaceIds, store)
-					.then(function(workspaceInfos){
-						workspaceInfos.forEach(function(each){
-							var location = each.Name;
-							if(parentDir.lastIndexOf(location,0) === 0 && location.length > similarity){
-								similarity = location.length;
-								// find the closest existing workspace path, and use that as the orion current workspace
-								return configParams.workspace = location;
+					waitFor = Promise.resolve(waitFor).then(function(){
+						metaUtil.getWorkspaceMeta(userPrefs.WorkspaceIds, store)
+						.then(function(workspaceInfos){
+							workspaceInfos.forEach(function(each){
+								var location = each.Name;
+								if(parentDir.lastIndexOf(location,0) === 0 && location.length > similarity){
+									similarity = location.length;
+									// find the closest existing workspace path, and use that as the orion current workspace
+									return configParams.workspace = location;
+								}
+							});
+							relativeFileUrl = api.toURLPath(readyToOpenPath.substring(configParams.workspace.length));
+							if(configParams.workspace === parentDir){
+								// The case where have to create a new workspace metadata
+								return createWorkspaceForDir(configParams.workspace);
 							}
+							return;
 						});
-						relativeFileUrl = api.toURLPath(readyToOpenPath.substring(configParams.workspace.length));
-						if(configParams.workspace === parentDir){
-							// The case where have to create a new workspace metadata
-							return createWorkspaceForDir(configParams.workspace);
-						}
-						return;
 					});
 				}else if(stats.isDirectory()){
 					configParams.workspace = readyToOpenPath;
-					waitFor = createWorkspaceForDir(configParams.workspace);
+					waitFor = Promise.resolve(waitFor).then(function(){
+						return createWorkspaceForDir(configParams.workspace);
+					});
 				}
 			}catch(e){}
 		}
@@ -373,7 +405,7 @@ module.exports.start = function(startServer, configParams) {
 					var fileUrl = hostUrl + "/edit/edit.html#/file" + relativeFileUrl;
 					toOpen = "edit/edit.html#/file" + relativeFileUrl;
 				}
-				if(readyToOpenPath && prefsWorkspace !== configParams.workspace){
+				if(readyToOpenPath && mostRecentWorkspaceId !== configParams.workspace){
 					mainWindow = createWindow(fileUrl ? fileUrl : hostUrl);
 				}else{
 					if(toOpen){
@@ -381,6 +413,8 @@ module.exports.start = function(startServer, configParams) {
 						mainWindow.webContents.executeJavaScript('setActiveIndex("' + activeIndex + '");');
 					}else{ // if user open Orion for the first time
 						mainWindow = createWindow(hostUrl);
+						var giturl = hostUrl + "/git/git-repository.html";
+						mainWindow.webContents.executeJavaScript('createTab("' + giturl + '", true);');
 					}
 				}
 				mainWindow.on('closed', function() {
