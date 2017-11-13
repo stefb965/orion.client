@@ -780,8 +780,8 @@ define([
 			this._logMetrics("open"); //$NON-NLS-0$
 			this.dispatchEvent(evt);
 			this.editor = editor = evt.editor;
-			this._formatter = new mFormatter.Formatter(this.serviceRegistry, this, editor);
-			if (!isDir) {
+			if (!isDir && this.editor) {
+				this._formatter = new mFormatter.Formatter(this.serviceRegistry, this, editor);
 				if (!noSetInput) {
 					editor.setInput(title, null, contents);
 					if (isCachedContent) {

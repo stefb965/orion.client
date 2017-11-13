@@ -248,6 +248,9 @@ Object.assign(FsMetastore.prototype, {
 
 	getWorkspace: function(workspaceId, callback) {
 		var userId = metaUtil.decodeUserIdFromWorkspaceId(workspaceId);
+		if(!userId) {
+			return callback(new Error("userId invalid"))
+		}
 		Promise.using(this.lock(userId, true), function() {
 			return new Promise(function(resolve, reject) {
 				this._readWorkspaceMetadata(workspaceId, function(error, metadata) {

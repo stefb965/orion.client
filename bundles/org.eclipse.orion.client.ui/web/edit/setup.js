@@ -1145,57 +1145,69 @@ objects.mixin(EditorViewer.prototype, {
 				var tabHref = this.activateContext.computeNavigationHref(evt.metadata);
 			}
 			var workspaceId = evt.metadata.Id || (inputManager.getWorkspace() && inputManager.getWorkspace().Id);
-			if(evt.metadata.hasOwnProperty("Projects") && (typeof this.tabWidget.workspaceTabPrefs.getWorkspaceId() === 'undefined' || this.tabWidget.workspaceTabPrefs.getWorkspaceId() !== workspaceId)) {
-				this.tabWidget.recordToCloseTabs();
-				this.tabWidget.workspaceTabPrefs.setWorkspaceId(workspaceId);
-				this.tabWidget.restoreTabsFromWSPrefs(function(){
-					this.tabWidget.addTab(metadata, tabHref);
-					this.tabWidget.closeAllToRemoveTabs();
-				}.bind(this));
+			if(typeof this.tabWidget.workspaceTabPrefs.getWorkspaceId() === 'undefined') {
+				doTabRestoration.bind(this)();
+			} else if(evt.metadata.hasOwnProperty("Projects") && this.tabWidget.workspaceTabPrefs.getWorkspaceId() !== workspaceId){
+				doTabRestoration.bind(this)();
+				return
 			} else if(metadata) {
+				this.tabWidget.workspaceTabPrefs.setWorkspaceId(workspaceId);
 				this.tabWidget.addTab(metadata, tabHref);
 				this.tabWidget.setTabStorage();
 			}
-			if (metadata) {
-				var lastFile = PageUtil.hash();
-				if (lastFile  === "#" + metadata.Location){
-					sessionStorage.lastFile = lastFile;
-				}
-			} else {
-				delete sessionStorage.lastFile;
-			}
-			var view = this.getEditorView(evt.input, metadata);
-			this.setEditor(view ? view.editor : null);
-			this.addAnnotationsFromDebugService();
-			this.updateDirtyIndicator();
-			evt.editor = this.editor;
-			this.pool.metadata = metadata;
-			
-			var editorView = this.getCurrentEditorView();
-			
-			if (editorView && editorView.editor) {
-				this.editor.isFileInitiallyLoaded = false;
-				var textView = editorView.editor.getTextView();
-				textView.addEventListener("ModelChanged", function(){
-					if(this.editor.isFileInitiallyLoaded){
-						if(this.tabWidget.transientTab && this.tabWidget.transientTab.location === this.pool.metadata.Location){
-							this.tabWidget.transientToPermanent(this.tabWidget.transientTab.href);
-						}
-					}
+			doOperation.bind(this)();
+			function doTabRestoration(){
+				this.tabWidget.recordToCloseTabs();
+				this.tabWidget.workspaceTabPrefs.setWorkspaceId(workspaceId);
+				this.tabWidget.restoreTabsFromWSPrefs(function(){
+					// This is when there are no tabs to restore
+					this.tabWidget.addTab(metadata, tabHref);
+					this.tabWidget.closeAllToRemoveTabs();
+					doOperation.bind(this)();
 				}.bind(this));
-				var flagInitialLoad = function(evt){
-						if(typeof evt.contentsSaved === "undefined"){
-							this.editor.isFileInitiallyLoaded = true; 
-						}
-						this.editor.removeEventListener("InputChanged", flagInitialLoad);
-					}.bind(this);
-				this.editor.addEventListener("InputChanged", flagInitialLoad);
 			}
-			
-			if (this.shown) {
-				var href = window.location.href;
-				this.activateContext.setActiveEditorViewer(this);
-				this.commandRegistry.processURL(href);
+			function doOperation(){
+				if (metadata) {
+					var lastFile = PageUtil.hash();
+					if (lastFile  === "#" + metadata.Location){
+						sessionStorage.lastFile = lastFile;
+					}
+				} else {
+					delete sessionStorage.lastFile;
+				}
+				var view = this.getEditorView(evt.input, metadata);
+				this.setEditor(view ? view.editor : null);
+				this.addAnnotationsFromDebugService();
+				this.updateDirtyIndicator();
+				evt.editor = this.editor;
+				this.pool.metadata = metadata;
+				
+				var editorView = this.getCurrentEditorView();
+				
+				if (editorView && editorView.editor) {
+					this.editor.isFileInitiallyLoaded = false;
+					var textView = editorView.editor.getTextView();
+					textView.addEventListener("ModelChanged", function(){
+						if(this.editor.isFileInitiallyLoaded){
+							if(this.tabWidget.transientTab && this.tabWidget.transientTab.location === this.pool.metadata.Location){
+								this.tabWidget.transientToPermanent(this.tabWidget.transientTab.href);
+							}
+						}
+					}.bind(this));
+					var flagInitialLoad = function(evt){
+							if(typeof evt.contentsSaved === "undefined"){
+								this.editor.isFileInitiallyLoaded = true; 
+							}
+							this.editor.removeEventListener("InputChanged", flagInitialLoad);
+						}.bind(this);
+					this.editor.addEventListener("InputChanged", flagInitialLoad);
+				}
+				
+				if (this.shown) {
+					var href = window.location.href;
+					this.activateContext.setActiveEditorViewer(this);
+					this.commandRegistry.processURL(href);
+				}
 			}
 		}.bind(this));
 		inputManager.addEventListener("InputChanging", function(e) { //$NON-NLS-0$
