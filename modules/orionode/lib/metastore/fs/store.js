@@ -33,7 +33,8 @@ var DESCRIPTION_METASTORE = "This JSON file is at the root of the Orion metadata
 var VERSION = 8;
 
 function getUserRootLocation(options, userId) {
-	return options.configParams['orion.single.user'] ? nodePath.join(options.configParams['orion.single.user.metaLocation'] || os.homedir(), '.orion') : nodePath.join.apply(null, metaUtil.readMetaUserFolder(options.workspaceDir, userId));
+	var orionMetaFolderName = options.configParams.isElectron ? '.orionElectron' : '.orion';
+	return options.configParams['orion.single.user'] ? nodePath.join(options.configParams['orion.single.user.metaLocation'] || os.homedir(), orionMetaFolderName) : nodePath.join.apply(null, metaUtil.readMetaUserFolder(options.workspaceDir, userId));
 }
 
 function getUserMetadataFileName(options, user) {
@@ -75,7 +76,8 @@ FsMetastore.prototype.lock = function(userId, shared) {
 		if (!locker) {
 			var filePath;
 			if (this._isSingleUser) {
-				filePath = nodePath.join(this._options.configParams['orion.single.user.metaLocation'] || os.homedir(), '.orion');
+				var orionMetaFolderName = this._isElectron ? '.orionElectron' : '.orion';
+				filePath = nodePath.join(this._options.configParams['orion.single.user.metaLocation'] || os.homedir(), orionMetaFolderName);
 			} else {
 				var userPrefix = userId.substring(0, Math.min(2, userId.length));
 				filePath = nodePath.join(this._options.workspaceDir, userPrefix);
@@ -295,6 +297,7 @@ Object.assign(FsMetastore.prototype, {
 						return reject(error);
 					}
 					var projectsToDelete = metadata.ProjectNames;
+					var isWorkspaceHasLocation = typeof metadata.ContentLocation === "string";
 					projectsToDelete.forEach(function(projectname){
 						var metaFile = getProjectMetadataFileName(this._options, workspaceId, projectname);
 						fs.unlinkAsync(metaFile).catchReturn({ code: 'ENOENT' }, null);
@@ -314,7 +317,9 @@ Object.assign(FsMetastore.prototype, {
 								return reject(error);
 							}
 							fs.unlinkAsync(getWorkspaceMetadataFileName(this._options, workspaceId)).catchReturn({ code: 'ENOENT' }, null)
-							.then(resolve, reject);
+							.then(function(){
+								resolve(isWorkspaceHasLocation)
+							}, reject);
 						}.bind(this));				
 					}.bind(this));
 				}.bind(this));

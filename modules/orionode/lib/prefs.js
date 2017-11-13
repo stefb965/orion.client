@@ -254,7 +254,7 @@ function update(req, prefs, callback){
 };
 
 function getElectronPrefsFileName(){
-	return nodePath.join(os.homedir(), '.orion', PREF_FILENAME);
+	return nodePath.join(os.homedir(), '.orionElectron', PREF_FILENAME);
 }
 function readPrefNode(options, path, properties) {
 	options.configParams = options.configParams || {};

@@ -44,7 +44,7 @@ if (configParams["orion.cluster"]) {
 
 var homeDir = os.homedir();
 if (process.versions.electron) {
-	var logPath = path.join(homeDir, '.orion', 'orion.log');
+	var logPath = path.join(homeDir, '.orionElectron', 'orion.log');
 	if(process.platform === 'darwin'){
 		logPath = path.join(homeDir, '/Library/Logs/Orion', 'orion.log');
 	}else if(process.platform === 'linux'){
@@ -78,7 +78,7 @@ function startServer(cb) {
 		 // workspace param in orion.conf is relative to the server install dir.
 		workspaceDir = path.resolve(__dirname, workspaceConfigParam);
 	} else if (configParams.isElectron) {
-		workspaceDir =  path.join(homeDir, '.orion', '.workspace');
+		workspaceDir =  path.join(homeDir, '.orionElectron', '.workspace');
 	} else {
 		workspaceDir = path.join(__dirname, '.workspace');
 	}

@@ -205,11 +205,11 @@ module.exports = function(options) {
 		var rest = req.params["0"].substring(1);
 		var file = fileUtil.getFile(req, rest);
 		var store = fileUtil.getMetastore(req);
-		store.deleteWorkspace(file.workspaceId, function(err) {
+		store.deleteWorkspace(file.workspaceId, function(err, isToDeleteWorkspace) {
 			if (err) {
 				return writeError(singleUser ? 403 : 400, res, err);
 			}
-			if(!options.configParams.isElectron){
+			if(!isToDeleteWorkspace){
 				fileUtil.rumRuff(file.workspaceDir, function(err) {
 					if (err) {
 						return writeError(400, res, err);
