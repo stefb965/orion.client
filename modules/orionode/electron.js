@@ -122,7 +122,7 @@ module.exports.start = function(startServer, configParams) {
 				nextWindow.webContents.executeJavaScript('createTab("' + url + '");');
 			}
 		});
-		nextWindow.webContents.openDevTools();
+		
 		nextWindow.on("close", function(event) {
 			event.preventDefault();
 			store.getUser(electronUserName,function(err, data){

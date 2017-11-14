@@ -478,20 +478,25 @@ objects.mixin(TabWidget.prototype, {
 			this.workspaceTabPrefs.setPrefs(mappedFiles);
 		}
 	},
-	restoreTabsFromWSPrefs: function(callback) {
+	restoreTabsFromWSPrefs: function(callbackWhenNoTabPrefs) {
 		this.workspaceTabPrefs.getPrefs().then(function(prefs){
 			if(prefs && prefs.length > 0) {
+				var isLocationSet = false;
 				prefs.reverse().forEach(function(cachedTab) {
 					if (cachedTab) {
 						this.addTab(cachedTab.metadata, cachedTab.href, true, cachedTab.isTransient);
 						if(cachedTab.checked){
+							isLocationSet = true;
 							this.setWindowLocation(cachedTab.href);
 						}
 					}
 				}.bind(this));
+				if(!isLocationSet){
+					this.setWindowLocation(prefs[0].href);
+				}
 				this.closeAllToRemoveTabs();
 			} else {
-				callback();
+				callbackWhenNoTabPrefs();
 			}
 		}.bind(this));
 	},
@@ -1149,7 +1154,7 @@ objects.mixin(EditorViewer.prototype, {
 				doTabRestoration.bind(this)();
 			} else if(evt.metadata.hasOwnProperty("Projects") && this.tabWidget.workspaceTabPrefs.getWorkspaceId() !== workspaceId){
 				doTabRestoration.bind(this)();
-				return
+				return;
 			} else if(metadata) {
 				this.tabWidget.workspaceTabPrefs.setWorkspaceId(workspaceId);
 				this.tabWidget.addTab(metadata, tabHref);
