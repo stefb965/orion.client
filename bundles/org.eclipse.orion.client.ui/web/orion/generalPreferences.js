@@ -31,7 +31,7 @@ define([
 		enableFolderCreationAtRoot: false,
 		enableProjectCreation: true,
 		enableLinkProjectCreation: true,
-		enableRefreshButton: false,
+		enableRefreshButton: util.isElectron ? true: false,
 		enableDebugger: util.isElectron ? true: false
 	};
 
