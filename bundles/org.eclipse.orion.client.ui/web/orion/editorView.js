@@ -47,7 +47,11 @@ define([
 	'orion/commonPreferences',
 	'embeddedEditor/helper/memoryFileSysConst',
 	'orion/objects',
-	'orion/formatter'
+	'orion/formatter',
+	'lsp/languageServerRegistry',
+	'lsp/utils',
+	'orion/gotoDefinition',
+	'orion/references'
 ], function(
 	messages,
 	mEditor, mAnnotations, mEventTarget, mTextView, mTextModelFactory, mEditorFeatures, mHoverFactory, mContentAssist,
@@ -56,7 +60,8 @@ define([
 	mDispatcher, EditorContext, Highlight,
 	mMarkOccurrences, mSyntaxchecker, LiveEditSession,
 	mProblems, mBlamer, mDiffer,
-	mKeyBinding, util, Deferred, mContextMenu, mMetrics, mCommonPreferences, memoryFileSysConst, objects, mFormatter
+	mKeyBinding, util, Deferred, mContextMenu, mMetrics, mCommonPreferences, memoryFileSysConst, objects, mFormatter,
+	LanguageServerRegistry, lspUtils, mGotoDefinition, mReferences
 ) {
 	var inMemoryFilePattern = memoryFileSysConst.MEMORY_FILE_PATTERN;
 	var Dispatcher = mDispatcher.Dispatcher;
@@ -347,6 +352,20 @@ define([
 			var progress = this.progress;
 			var contentTypeRegistry = this.contentTypeRegistry;
 			var editorCommands = this.editorCommands;
+			var languageServerRegistry = new LanguageServerRegistry.LanguageServerRegistry(serviceRegistry, this.problemsServiceID);
+			
+			var openedDocument;
+			function openDocument(evnt, languageServer) {
+				if (openedDocument) {
+					languageServer.didClose(openedDocument.location);
+				}
+				var metaData = inputManager.getFileMetadata();
+				openedDocument = {
+					location: metaData.Location,
+					version:  1
+				};
+				languageServer.didOpen(metaData.Location, inputManager.getContentType().id, openedDocument.version, evnt.text);
+			}
 
 			var textViewFactory = function() {
 				var options = that.updateViewOptions(that.settings);
@@ -356,6 +375,42 @@ define([
 					wrappable: true
 				});
 				var textView = new mTextView.TextView(options);
+				textView.addEventListener("ModelChanging", function(evnt) {
+					var languageServer = languageServerRegistry.getServerByContentType(inputManager.getContentType());
+					if (!languageServer) {
+						return;
+					}
+					if (that.inputChanged) {
+						delete that.inputChanged;
+						openDocument(evnt, languageServer);
+						return;
+					}
+
+					var textDocumentSync = languageServer.getTextDocumentSync();
+					if (textDocumentSync) {
+						if (textDocumentSync === languageServer.ipc.TEXT_DOCUMENT_SYNC_KIND.Full) {
+							// TextDocumentSyncKind.Full, send the entire document
+							// get the text before it was modified
+							var text = textView.getText();
+							// get the substrings then insert the text in between
+							text = text.substring(0, evnt.start) + evnt.text + text.substring(evnt.start + evnt.removedCharCount);
+							languageServer.didChange(inputManager.getFileMetadata().Location, 
+									openedDocument.version++, 
+									[{
+										text: text
+									}]);
+						} else if (textDocumentSync === languageServer.ipc.TEXT_DOCUMENT_SYNC_KIND.Incremental) {
+							// TextDocumentSyncKind.Incremental, only send what changed
+							languageServer.didChange(inputManager.getFileMetadata().Location, 
+									openedDocument.version++, 
+									[{
+										range: lspUtils.getRange(editor, evnt.start, evnt.start + evnt.removedCharCount),
+										rangeLength: evnt.removedCharCount,
+										text: evnt.text
+									}]);
+						}
+					}
+				});
 				return textView;
 			};
 
@@ -435,6 +490,11 @@ define([
 					}).filter(function(providerInfo) {
 						return !!providerInfo;
 					});
+					// check lsp implementation for the current content type
+					var lspServer = languageServerRegistry.getServerByContentType(fileContentType);
+					if (lspServer) {
+						providerInfoArray.push({provider: lspServer, id: lspServer._id, lspServer: true, excludedStyles: new RegExp("(string.*)")});
+					}
 				}
 
 				// Produce a bound EditorContext that contentAssist can invoke with no knowledge of ServiceRegistry.
@@ -479,7 +539,7 @@ define([
 				foldingRulerFactory: new mEditorFeatures.FoldingRulerFactory(),
 				zoomRulerFactory: new mEditorFeatures.ZoomRulerFactory(),
 				lineNumberRulerFactory: new mEditorFeatures.LineNumberRulerFactory(),
-				hoverFactory: new mHoverFactory.HoverFactory(serviceRegistry, inputManager, commandRegistry),
+				hoverFactory: new mHoverFactory.HoverFactory(serviceRegistry, inputManager, commandRegistry, languageServerRegistry),
 				contentAssistFactory: contentAssistFactory,
 				keyBindingFactory: keyBindingFactory,
 				statusReporter: this.statusReporter,
@@ -521,9 +581,19 @@ define([
 				}
 			});
 			inputManager.addEventListener("InputChanged", function(evnt) {
+				that.inputChanged = true;
 				that.createSession(evnt);
 				var textView = editor.getTextView();
 				if (textView) {
+					var contentType = inputManager.getContentType();
+					var languageServer = languageServerRegistry.getServerByContentType(contentType);
+					if (languageServer) {
+						languageServer.start().then(function() {
+							if (this.renderToolbars) {
+								this.renderToolbars(inputManager.getFileMetadata());
+							}
+						}.bind(this));
+					}
 					liveEditSession.start(inputManager.getContentType(), evnt.title);
 					textView.setOptions(this.updateViewOptions(this.settings));
 					this.markOccurrences.setOccurrencesVisible(this.settings.showOccurrences);
@@ -553,17 +623,28 @@ define([
 
 			this.blamer = new mBlamer.Blamer(serviceRegistry, inputManager, editor);
 			this.differ = new mDiffer.Differ(serviceRegistry, inputManager, editor);
-			this.formatter = new mFormatter.Formatter(serviceRegistry, inputManager, editor);
+			this.formatter = new mFormatter.Formatter(serviceRegistry, inputManager, editor, languageServerRegistry);
+			this.gotoDefinition = new mGotoDefinition.GotoDefinition(serviceRegistry, inputManager, editor, languageServerRegistry);
+			this.references = new mReferences.References(serviceRegistry, inputManager, editor, languageServerRegistry);
 
 			this.problemService = new mProblems.ProblemService(serviceRegistry, this.problemsServiceID);
 			var markerService = serviceRegistry.getService(this.problemsServiceID);
 			if(markerService) {
 				markerService.addEventListener("problemsChanged", function(evt) {
-					editor.showProblems(evt.problems);
+					if (evt.uri) {
+						var metaData = inputManager.getFileMetadata();
+						if (metaData && metaData.Location === evt.uri) {
+							if (Array.isArray(evt.problems)) {
+								editor.showProblems(evt.problems);
+							}
+						}
+					} else if (Array.isArray(evt.problems)) {
+						editor.showProblems(evt.problems);
+					}
 				});
 			}
 
-			var markOccurrences = this.markOccurrences = new mMarkOccurrences.MarkOccurrences(serviceRegistry, inputManager, editor);
+			var markOccurrences = this.markOccurrences = new mMarkOccurrences.MarkOccurrences(serviceRegistry, inputManager, editor, languageServerRegistry);
 			markOccurrences.setOccurrencesVisible(this.settings.showOccurrences);
 			markOccurrences.findOccurrences();
 			
@@ -587,7 +668,15 @@ define([
 			editor.addEventListener("InputChanged", function(evt) {
 				syntaxCheck(evt.title, evt.message, evt.contents);
 			});
-
+			var serviceListener = function(evnt) {
+				var textView = editor.getTextView();
+				if (textView) {
+					var contentAssist = new mContentAssist.ContentAssist(textView, serviceRegistry);
+					setContentAssistProviders(editor, contentAssist, evnt);
+				}
+			};
+			serviceRegistry.addEventListener("registered", serviceListener);
+			serviceRegistry.addEventListener("unregistering", serviceListener);
 			var contextImpl = Object.create(null);
 			[
 				"getCaretOffset", "setCaretOffset", //$NON-NLS-1$ //$NON-NLS-2$
@@ -666,7 +755,7 @@ define([
 			}
 			return styleAccessor;
 		},
-		_createContextMenu: function() {			
+		_createContextMenu: function() {
 			// Create the context menu element (TBD: re0use a single Node for all context Menus ??)
 			this._editorContextMenuNode = document.createElement("ul"); //$NON-NLS-0$
 			this._editorContextMenuNode.className = "dropdownMenu"; //$NON-NLS-0$

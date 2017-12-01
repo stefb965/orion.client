@@ -19,7 +19,9 @@ var express = require('express'),
 	checkRights = require('./lib/accessRights').checkRights,
 	socketio = require('socket.io'),
 	ttyShell = require('./lib/tty_shell'),
-	responseTime = require('response-time');
+	responseTime = require('response-time'),
+	lsregistry = require("./lib/lsRegistry"),
+	addModulePath = require('app-module-path');
 
 var LIBS = path.normalize(path.join(__dirname, 'lib/')),
 	MINIFIED_ORION_CLIENT = path.normalize(path.join(__dirname, "lib/orion.client")),
@@ -56,7 +58,6 @@ function startServer(options) {
 	options = options || {};
 	options.configParams = options.configParams || require("nconf");
 	if(options.configParams.get("additional.modules.path")){
-		var addModulePath = require('app-module-path');
 		options.configParams.get("additional.modules.path").split(",").forEach(function(modulePath){
 			addModulePath.addPath(path.join(__dirname, modulePath));
 		});
@@ -205,6 +206,44 @@ function startServer(options) {
 		app.use(require('./lib/orion_static')(Object.assign({orionClientRoot: ORION_CLIENT, orionode_static: orionode_static, prependStaticAssets: prependStaticAssets, appendStaticAssets: appendStaticAssets}, staticCacheOption)));
 	}
 	return app;
+}
+
+/**
+ * Load any language servers mapped to the server config
+ * @param {?} options 
+ * @param {socketio} io The backing socket.IO library
+ * @since 17.0
+ */
+function loadLanguageServers(options, io) {
+	// set up language servers from language.servers.path
+		//LSP
+		var ls = options.configParams.get("language.servers.path");
+		if(typeof ls === 'string' && ls && options.configParams.get('orion.single.user')) {
+			addModulePath.addPath(path.join(__dirname, "language_servers"));
+			ls.split(",").forEach(function(serverName) {
+				var lsPath = path.join(__dirname, "language_servers", serverName);
+				if(fs.existsSync(lsPath)) {
+					addModulePath.addPath(lsPath);
+					try {
+						var server = require(serverName);
+						if(server && typeof server.createServer === 'function') {
+							lsregistry.installServer(server.createServer(), { 
+									io: io, 
+									workspaceDir: options.workspaceDir,
+									IN_PORT: 8123,
+									OUT_PORT: 8124
+								});
+						} else {
+							logger.log("Tried to install language server '"+serverName+"' - but it has no createServer function");
+						}
+					} catch(err) {
+						logger.log("Failed to load language server: "+ err);
+					}
+				} else {
+					logger.log("Tried to install language server that does not exist in language_servers folder");
+				}
+			});
+		}
 }
 
 module.exports = startServer;
