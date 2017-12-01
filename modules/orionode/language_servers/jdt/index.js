@@ -1,0 +1,346 @@
+/*******************************************************************************
+ * Copyright (c) 2013, 2017 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials are made 
+ * available under the terms of the Eclipse Public License v1.0 
+ * (http://www.eclipse.org/legal/epl-v10.html), and the Eclipse Distribution 
+ * License v1.0 (http://www.eclipse.org/org/documents/edl-v10.html). 
+ *
+ * Contributors:
+ *	 IBM Corporation - initial API and implementation
+ *******************************************************************************/
+var path = require('path'),
+    cp = require('child_process'),
+    rimraf = require('rimraf'),
+    api = require('../../lib/api'),
+    net = require('net'),
+    fs = require('fs'),
+    fileUtil = require('../../lib/fileUtil'),
+    log4js = require('log4js'),
+    logger = log4js.getLogger("lsp");
+
+const CONTENT_LENGTH = 'Content-Length: ';
+const CONTENT_LENGTH_SIZE = CONTENT_LENGTH.length;
+
+var remainingData,
+    ready = false,
+    DEBUG = true,
+    IN_PORT = 8123,
+    OUT_PORT = 8124;
+
+function JavaLanguageServer() {
+}
+
+Object.assign(JavaLanguageServer.prototype, {
+	route: '/jdt',
+	id: 'java.jdt.language.server',
+	name: 'JDT Java language server',
+	contentType: ["text/x-java-source", "application/x-jsp"],
+	onStart: function onStart() {
+
+	}	
+});
+
+/**
+ * @name module.exports.createServer
+ * @callback 
+ * @description Creates an instance of this server
+ * @function
+ * @param {function} registerFn The function to call back to to register in Orion
+ */
+module.exports.createServer = function createServer() {
+	return new JavaLanguageServer();
+};
+
+/**
+ * @name module.exports.connect
+ * @callback 
+ * @description Connects this server to the socket
+ * @function
+ * @param {?} options The options
+ */
+module.exports.connect = function connect(options) {
+	var io = options.io;
+	if (!io) {
+		logger.error('Missing options.io. LSP features will be disabled.');
+		return;
+	}
+	var workspaceUrl = "file:///" + options.workspaceDir.replace(/\\/g, "/");
+	
+	var javaHome = process.env["JAVA_HOME"];
+	if (!javaHome) {
+		logger.error('JAVA_HOME needs to be set. LSP featrues will be disabled');
+		return;
+	}
+
+	io.of('/jdt').on('connection', function(sock) {
+		sock.on('start', /* @callback */ function(cwd) {
+			var startup = true;
+			var sendToServer = net.createServer({}, function(stream) {
+				logger.info('sendToServer socket connected');
+
+				sock.on('data', function(data) {
+					var textDocument = data.params && data.params.textDocument;
+					if (textDocument && textDocument.uri) {
+						var workspaceFile = fileUtil.getFile2(options.metastore, textDocument.uri.replace(/^\/file/, ''));
+						textDocument.uri = workspaceUrl + workspaceFile.path.slice(workspaceFile.workspaceDir.length);
+						// convert backslashes to slashes only if on Windows
+						if (path.sep === '\\') {
+							textDocument.uri = textDocument.uri.replace(/\\/g, "/");
+						}
+					}
+					var s = JSON.stringify(data);
+					if (!ready) {
+						// check if this is the initialization message if not skip it
+						if (data.method !== "initialize" && data.method !== "textDocument/didOpen") {
+							return;
+						}
+					}
+					logger.info('data sent : ' + s);
+					stream.write("Content-Length: " + s.length + "\r\n\r\n" + s);
+				});
+				stream.on('error', function(err) {
+					logger.error('sendToServer stream error: ' + err.toString());
+				});
+				stream.on('end', function() {
+					logger.info('sendToServer stream disconnected');
+				});
+				if (sock && startup) {
+					startup = false;
+					sock.emit('ready',
+						JSON.stringify({
+							workspaceDir: options.workspaceDir,
+							processId: process.pid
+						}));
+				}
+
+			});
+			sendToServer.listen(OUT_PORT, null, null, function() {
+				logger.info("sendToServer socket is listening");
+			});
+			sendToServer.on('error', function(err) {
+				logger.error('sendToServer socket error: ' + err.toString());
+			});
+			sendToServer.on('end', function() {
+				logger.info('Disconnected sendToServer');
+			});
+			var serverClosed = false;
+			var closeServer = function () {
+				if (serverClosed) {
+					return;
+				}
+				serverClosed = true;
+				receiveFromServer.close();
+				sendToServer.close();
+			};
+			runJavaServer(javaHome).then(function(child) {
+				child.on('error', function(err) {
+					closeServer();
+					logger.error('java server process error: ' + err.toString());
+				});
+				child.once('error', function(err) {
+					closeServer();
+					logger.error(err);
+				});
+				child.once('exit', function() {
+					closeServer();
+				});
+				sock.on('disconnect', function() {
+					if (child.connected) {
+						child.disconnect();
+					} else {
+						child.kill();
+					}
+					sock = null;
+					remainingData = null;
+					ready = false;
+				});
+			});
+		});
+	});
+};
+
+function parseMessage(data, workspaceUrl, sock) {
+	try {
+		var dataContents = data;
+		if (remainingData) {
+			dataContents = Buffer.concat([remainingData, dataContents]);
+		}
+		var offset = 0;
+		var headerIndex = -1;
+		loop: while ((headerIndex = dataContents.indexOf(CONTENT_LENGTH, offset, 'ascii')) !== -1) {
+			// this is an known header
+			var headerSizeIndex = dataContents.indexOf('\r\n\r\n', headerIndex + CONTENT_LENGTH_SIZE, 'ascii');
+			if (headerSizeIndex !== -1) {
+				var messageSize = Number(dataContents.slice(headerIndex + CONTENT_LENGTH_SIZE, headerSizeIndex));
+				if (messageSize + headerSizeIndex >= dataContents.length) {
+					// not enough data
+					offset = headerIndex;
+					break loop;
+				}
+				offset = headerSizeIndex + 4 + messageSize;
+				// enough data to get the message contents
+				var contents = dataContents.slice(headerSizeIndex + 4, headerSizeIndex + 4 + messageSize);
+				var json = null;
+				try {
+					json = JSON.parse(contents.toString('utf8'));
+				} catch(e) {
+					logger.error(e);
+					logger.error("==================== START CURRENT DATA =============================\n");
+					logger.error("contents = " + contents);
+					logger.error("messageSize = " + messageSize);
+					logger.error("full data contents = " + dataContents);
+					logger.error("headerSizeIndex = " + headerSizeIndex);
+					logger.error("raw data = " + data);
+					logger.error("raw data slice= " + data.slice(headerSizeIndex + 4, headerSizeIndex + 4 + messageSize));
+					logger.error("remaining data = " + remainingData);
+					logger.error("==================== END CURRENT DATA =============================\n");
+				}
+				if (json) {
+					if (json.params) {
+						fixURI(json.params, workspaceUrl);
+					}
+					if (json.result) {
+						fixURI(json.result, workspaceUrl);
+					}
+				}
+				if (json !== null && sock) {
+					// detect that the server is ready
+//					{"method":"language/status","params":{"type":"Started","message":"Ready"},"jsonrpc":"2.0"}
+					if (!ready
+							&& json.method === "language/status"
+							&& json.params
+							&& json.params.type === "Started"
+							&& json.params.message === "Ready") {
+						ready = true;
+					}
+					logger.info(JSON.stringify(json));
+					sock.emit('data', json);
+				}
+			} else {
+				offset = headerIndex;
+				break loop;
+			}
+		}
+		if (offset === 0) {
+			remainingData = dataContents;
+		} else if (offset < dataContents.length) {
+			remainingData = dataContents.slice(offset, dataContents.length);
+		} else {
+			remainingData = null;
+		}
+	} catch (err) {
+		logger.error(err);
+	}
+}
+
+function fixURI(p, workspaceUrl) {
+	if (Array.isArray(p)) {
+		p.forEach(function(element) {
+			fixURI(element, workspaceUrl);
+		});
+	}
+	if (p.uri) {
+		var s = p.uri.slice(workspaceUrl.length);
+		p.uri = api.join('/file/orionode', s.charAt(0) === '/' ? s.slice(1) : s);
+	}
+}
+
+function runJavaServer(javaHome) {
+	return new Promise(function(resolve, reject) {
+		var child = javaHome + '/jre/bin/java'; // 'C:/devops/git/java-language-server/org.jboss.tools.vscode.product/target/products/languageServer.product/win32/win32/x86_64/eclipse';
+		var params = [];
+		var workspacePath = path.resolve(__dirname, "../server/tmp_ws");
+		rimraf(workspacePath, function(error) {
+			//TODO handle error
+			if (DEBUG) {
+				params.push('-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=1044');
+			}
+			params.push("-Dlog.level=ALL");
+			params.push('-Declipse.application=org.eclipse.jdt.ls.core.id1');
+			params.push('-Dosgi.bundles.defaultStartLevel=4');
+			params.push('-Declipse.product=org.eclipse.jdt.ls.core.product');
+			if (DEBUG) {
+				params.push('-Dlog.protocol=true');
+			}
+
+			var pluginsFolder = path.resolve(__dirname, '../server/plugins');
+			return fs.readdirAsync(pluginsFolder).then(function(files) {
+				if (Array.isArray(files) && files.length !== 0) {
+					for (var i = 0, length = files.length; i < length; i++) {
+						var file = files[i];
+						var indexOf = file.indexOf('org.eclipse.equinox.launcher_');
+						if (indexOf !== -1) {
+							params.push('-jar');
+							params.push(path.resolve(__dirname, '../server/plugins/' + file));
+				
+							//select configuration directory according to OS
+							var configDir = 'config_win';
+							if (process.platform === 'darwin') {
+								configDir = 'config_mac';
+							} else if (process.platform === 'linux') {
+								configDir = 'config_linux';
+							}
+							params.push('-configuration');
+							params.push(path.resolve(__dirname, '../server', configDir));
+							params.push('-data');
+							params.push(workspacePath);
+
+							return fork(child, params, {}, function(err, result) {
+								if (err) reject(err);
+								if (result) resolve(result);
+							});
+						}
+					}
+				}
+			});
+		});
+	});
+}
+
+function fork(modulePath, args, options, callback) {
+	var callbackCalled = false;
+	var resolve = function(result) {
+		if (callbackCalled) {
+			return;
+		}
+		callbackCalled = true;
+		callback(null, result);
+	};
+	var reject = function(err) {
+		if (callbackCalled) {
+			return;
+		}
+		callbackCalled = true;
+		callback(err, null);
+	};
+
+	var newEnv = generatePatchedEnv(options.env || process.env, IN_PORT, OUT_PORT);
+	var childProcess = cp.spawn(modulePath, args, {
+		silent: true,
+		cwd: options.cwd,
+		env: newEnv,
+		execArgv: options.execArgv
+	});
+	childProcess.once('error', function(err) {
+		logger.error("Java process error event");
+		logger.error(err);
+		reject(err);
+	});
+	childProcess.once('exit', function(err) {
+		logger.error("Java process exit event");
+		logger.error(err);
+		reject(err);
+	});
+	resolve(childProcess);
+}
+
+function generatePatchedEnv(env, inPort, outPort) {
+	// Set the two unique pipe names and the electron flag as process env
+	var newEnv = {};
+	for (var key in env) {
+		newEnv[key] = env[key];
+	}
+	newEnv['STDIN_PORT'] = inPort;
+	newEnv['STDOUT_PORT'] = outPort;
+	return newEnv;
+}
