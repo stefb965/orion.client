@@ -22,8 +22,8 @@ var LRU = require("lru-cache-for-clusters-as-promised");
 var targetCache = new LRU({max: 10000, maxAge: 1800000, namespace: "target"});
 
 module.exports.router = function(options) {
-	if(options.configParams.get("cf.bearer.token.store")) {
-		var getBearerToken = require(options.configParams.get("cf.bearer.token.store")).getBearerTokenfromUserId;
+	if(options.configParams.get("cf_bearer_token_store")) {
+		var getBearerToken = require(options.configParams.get("cf_bearer_token_store")).getBearerTokenfromUserId;
 	}
 	
 	module.exports.getAccessToken = getAccessToken;

@@ -55,16 +55,16 @@ var _24_HOURS = "public, max-age=86400, must-revalidate",
 function startServer(options) {
 	options = options || {};
 	options.configParams = options.configParams || require("nconf");
-	if(options.configParams.get("additional.modules.path")){
+	if(options.configParams.get("additional_modules_path")){
 		var addModulePath = require('app-module-path');
-		options.configParams.get("additional.modules.path").split(",").forEach(function(modulePath){
+		options.configParams.get("additional_modules_path").split(",").forEach(function(modulePath){
 			addModulePath.addPath(path.join(__dirname, modulePath));
 		});
 	}
 	
 	options.maxAge = typeof options.maxAge === "number" ? options.maxAge : undefined;
-	var contextPath = options.configParams.get("orion.context.path") || "";
-	var listenContextPath = options.configParams.get("orion.context.listenPath") || false;
+	var contextPath = options.configParams.get("orion_context_path") || "";
+	var listenContextPath = options.configParams.get("orion_context_listenPath") || false;
 	if (typeof options.workspaceDir !== "string") {
 		throw new Error("workspaceDir is required");
 	}
@@ -100,7 +100,7 @@ function startServer(options) {
 		req.user.checkRights(req.user.username, uri, req, res, next);
 	}
 	
-	var additionalEndpoints = options.configParams.get("additional.endpoint") ? require(options.configParams.get("additional.endpoint")) : [];
+	var additionalEndpoints = options.configParams.get("additional_endpoint") ? require(options.configParams.get("additional_endpoint")) : [];
 	function loadEndpoints(authenticated) {
 		additionalEndpoints.forEach(function(additionalEndpoint) {
 			if (authenticated !== Boolean(additionalEndpoint.authenticated)) return;
@@ -118,7 +118,7 @@ function startServer(options) {
 
 	// Configure metastore
 	var metastoreFactory;
-	if (!options.configParams.get("orion.single.user") && options.configParams.get("orion.metastore.useMongo") !== false) {
+	if (!options.configParams.get("orion_single_user") && options.configParams.get("orion_metastore_useMongo") !== false) {
 		metastoreFactory = require('./lib/metastore/mongodb/store');
 	} else {
 		metastoreFactory = require('./lib/metastore/fs/store');
@@ -196,8 +196,8 @@ function startServer(options) {
 	if (fs.existsSync(MINIFIED_ORION_CLIENT)) {
 		app.use(express.static(MINIFIED_ORION_CLIENT, Object.assign({dotfiles: 'allow'}, staticCacheOption)));
 	} else {
-		var prependStaticAssets = (options.configParams.get("prepend.static.assets") || "").split(",");
-		var appendStaticAssets = (options.configParams.get("append.static.assets") || "").split(",");
+		var prependStaticAssets = (options.configParams.get("prepend_static_assets") || "").split(",");
+		var appendStaticAssets = (options.configParams.get("append_static_assets") || "").split(",");
 		var orionode_static = path.normalize(path.join(LIBS, 'orionode.client/'));
 		if(options.configParams.get("orion.collab.enabled")) {
 			appendStaticAssets.push('./bundles/org.eclipse.orion.client.collab/web');

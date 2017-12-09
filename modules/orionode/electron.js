@@ -22,17 +22,17 @@ module.exports.start = function(startServer, configParams) {
 		autoUpdater = require('./lib/autoUpdater'),
 		spawn = require('child_process').spawn,
 		allPrefs = prefs.readElectronPrefs(),
-		feedURL = configParams.get("orion.autoUpdater.url"),
+		feedURL = configParams.get("orion_autoUpdater_url"),
 		version = electron.app.getVersion(),
 		name = electron.app.getName(),
 		platform = os.platform(),
 		arch = os.arch();
 
 	configParams.set("isElectron", true);
-	electron.app.buildId = configParams.get("orion.buildId");
+	electron.app.buildId = configParams.get("orion_buildId");
 
 	if (feedURL) {
-		var updateChannel = allPrefs.user && allPrefs.user.updateChannel && allPrefs.user.updateChannel.name ? allPrefs.user.updateChannel.name : configParams.get("orion.autoUpdater.defaultChannel"),
+		var updateChannel = allPrefs.user && allPrefs.user.updateChannel && allPrefs.user.updateChannel.name ? allPrefs.user.updateChannel.name : configParams.get("orion_autoUpdater_defaultChannel"),
 			latestUpdateURL;
 		if (platform === "linux") {
 			latestUpdateURL = feedURL + '/download/channel/' + updateChannel + '/linux';
@@ -270,7 +270,7 @@ module.exports.start = function(startServer, configParams) {
 		});
 
 		function scheduleUpdateChecks () {
-			var checkInterval = (configParams.get("orion.autoUpdater.checkInterval") >> 0 || 30) * 1000 * 60;
+			var checkInterval = (configParams.get("orion_autoUpdater_checkInterval") >> 0 || 30) * 1000 * 60;
 			var resolveNewVersion = function() {
 				autoUpdater.resolveNewVersion(false);
 			}.bind(this);

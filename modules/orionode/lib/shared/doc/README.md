@@ -122,8 +122,8 @@ This requires that the Orion server (orion.conf) and WebSocket server (config fi
 1. Ensure the jwt secret is the same on both Orion and the WS Server.
 2. Link the WS server to Orion by setting the Orion url in the config file.
 3. Link Orion client to WS server by adding this in defaults.pref: "/collab": { "hubUrl": "YOUR_URL" }.
-4. Add `./bundles/org.eclipse.orion.client.collab/web` to `append.static.assets` in `orion.conf`.
-5. Add this endpoint at additional.endpoint in orion.conf: 
+4. Add `./bundles/org.eclipse.orion.client.collab/web` to `append_static_assets` in `orion.conf`.
+5. Add this endpoint at additional_endpoint in orion.conf: 
 ~~~json
 {
     "endpoint": "/sharedWorkspace",

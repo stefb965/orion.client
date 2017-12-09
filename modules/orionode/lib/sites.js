@@ -26,7 +26,7 @@ var vhosts = [];
 module.exports = function(options) {
 	loadRunningSites();
 	
-	vhosts = (options.configParams.get("orion.site.virtualHosts") || "").split(",");
+	vhosts = (options.configParams.get("orion_site_virtualHosts") || "").split(",");
 
 	vhosts.forEach(function(host) {
 		if (host === "") {
@@ -72,7 +72,7 @@ function virtualHost(vhost, req, res, next) {
 				}
 				var relative  = urlPath.substring(mapping.Source.length);
 				var path;
-				if (options.configParams.get("orion.single.user")) {
+				if (options.configParams.get("orion_single_user")) {
 					path = mPath.join(options.workspaceDir, mapping.Target, relative);
 				} else {
 					var file = fileUtil.getFile(req, mapping.Target);

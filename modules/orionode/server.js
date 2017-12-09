@@ -83,8 +83,8 @@ function startServer(cb) {
 	}
 	configParams.set("workspace", workspaceDir);
 	mkdirp.sync(workspaceDir);
-	var contextPath = configParams.get("orion.context.path") || "";
-	var listenContextPath = configParams.get("orion.context.listenPath") || false;
+	var contextPath = configParams.get("orion_context_path") || "";
+	var listenContextPath = configParams.get("orion_context_listenPath") || false;
 	var passwordFile = configParams.get("password") || configParams.get("pwd");
 	var password = argslib.readPasswordFile(passwordFile);
 	var dev = configParams.get("dev");
@@ -101,10 +101,10 @@ function startServer(cb) {
 	var server;
 	// create web server
 	var app = express();
-	if (configParams.get("orion.https.key") && configParams.get("orion.https.cert")) {
+	if (configParams.get("orion_https_key") && configParams.get("orion_https_cert")) {
 		server = https.createServer({
-			key: fs.readFileSync(configParams.get("orion.https.key")),
-			cert: fs.readFileSync(configParams.get("orion.https.cert"))
+			key: fs.readFileSync(configParams.get("orion_https_key")),
+			cert: fs.readFileSync(configParams.get("orion_https_cert"))
 		}, app);
 	} else {
 		server = http.createServer(app);
@@ -184,7 +184,7 @@ function startServer(cb) {
 	new graceful.GracefulServer({
 		server: server,
 		log: logger.info.bind(logger),
-		shutdownTimeout: configParams.get("shutdown.timeout"),
+		shutdownTimeout: configParams.get("shutdown_timeout"),
 		exitFunction: function(code) {
 			logger.info("Exiting worker " + process.pid + " with code: " + code);
 			function done() {
@@ -232,7 +232,7 @@ try {
 				start(false); //TODO electron with cluster?
 			},
 			log: logger.info.bind(logger),
-			shutdownTimeout: configParams.get("shutdown.timeout"),
+			shutdownTimeout: configParams.get("shutdown_timeout"),
 			workersCount: numCPUs
 		});
 	} else {

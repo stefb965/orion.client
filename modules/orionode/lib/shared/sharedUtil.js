@@ -22,7 +22,7 @@ module.exports = function(options) {
     var workspaceDir = options.workspaceDir;
     if (!workspaceDir) { throw new Error('options.workspaceDir path required'); }
 
-    var contextPath = options.configParams.get('orion.context.path');
+    var contextPath = options.configParams.get('orion_context_path');
 
     module.exports.getFile = getFile;
     module.exports.treeJSON = treeJSON;

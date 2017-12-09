@@ -74,19 +74,19 @@ function sendMail(opt){
 	read(function(err, subject, body){
 		logError(err);
 		var smtpConfig = {
-			host: opt.options.configParams.get("mail.smtp.host"),
-			port: opt.options.configParams.get("mail.smtp.port"),
+			host: opt.options.configParams.get("mail_smtp_host"),
+			port: opt.options.configParams.get("mail_smtp_port"),
 			secure: true,
 			auth: {
-				user: opt.options.configParams.get("mail.smtp.user"),
-				pass: opt.options.configParams.get("mail.smtp.password")
+				user: opt.options.configParams.get("mail_smtp_user"),
+				pass: opt.options.configParams.get("mail_smtp_password")
 			}
 		};
 
-		if (opt.options.configParams.get("mail.from")) {
+		if (opt.options.configParams.get("mail_from")) {
 			var transport = nodemailer.createTransport(smtpConfig);
 			var mailOptions = {
-				from: opt.options.configParams.get("mail.from"),
+				from: opt.options.configParams.get("mail_from"),
 				to: opt.user.email,
 				subject: subject,
 				text: body, 
@@ -135,10 +135,10 @@ module.exports.router = function(options) {
 	app.use(responseTime({digits: 2, header: "X-User-Response-Time", suffix: true}));
 	
 	function canAddUsers() {
-		return !options.configParams.get("orion.auth.user.creation");
+		return !options.configParams.get("orion_auth_user_creation");
 	}
 	function isAdmin(username) {
-		return (options.configParams.get("orion.auth.user.creation") || "").split(",").some(function(user) {
+		return (options.configParams.get("orion_auth_user_creation") || "").split(",").some(function(user) {
 			return user === username;
 		});
 	}
@@ -195,11 +195,11 @@ module.exports.router = function(options) {
 		});
 	}
 
-	if (options.configParams.get("orion.oauth.google.client")) {
+	if (options.configParams.get("orion_oauth_google_client")) {
 		var GoogleStrategy = require('passport-google-oauth20').Strategy;
 		passport.use(new GoogleStrategy({
-			clientID: options.configParams.get("orion.oauth.google.client"),
-			clientSecret: options.configParams.get("orion.oauth.google.secret"),
+			clientID: options.configParams.get("orion_oauth_google_client"),
+			clientSecret: options.configParams.get("orion_oauth_google_secret"),
 			passReqToCallback: true,
 			callbackURL: (options.configParams.get("orion.auth.host") || "") + "/auth/google/callback",
 			scope: "openid email"
@@ -216,11 +216,11 @@ module.exports.router = function(options) {
 		});
 	}
 
-	if (options.configParams.get("orion.oauth.github.client")) {
+	if (options.configParams.get("orion_oauth_github_client")) {
 		var GithubStrategy = require('passport-github2').Strategy;
 		passport.use(new GithubStrategy({
-			clientID: options.configParams.get("orion.oauth.github.client"),
-			clientSecret: options.configParams.get("orion.oauth.github.secret"),
+			clientID: options.configParams.get("orion_oauth_github_client"),
+			clientSecret: options.configParams.get("orion_oauth_github_secret"),
 			passReqToCallback: true,
 			callbackURL: (options.configParams.get("orion.auth.host") || "") + "/auth/github/callback",
 			scope: "user:email"
@@ -389,7 +389,7 @@ module.exports.router = function(options) {
 
 	app.post('/users', options.authenticate, function(req, res){
 		// If there are admin accounts, only admin accounts can create users
-		if (options.configParams.get("orion.auth.user.creation") && !isAdmin(req.user && req.user.username)) {
+		if (options.configParams.get("orion_auth_user_creation") && !isAdmin(req.user && req.user.username)) {
 			return api.writeResponse(403, res);
 		}
 		var userData = {
@@ -405,7 +405,7 @@ module.exports.router = function(options) {
 			if (err) {
 				return api.writeResponse(404, res, null, {Message: err.message});
 			}
-			if (options.configParams.get("orion.auth.user.creation.force.email")) {
+			if (options.configParams.get("orion_auth_user_creation_force_email")) {
 				sendMail({user: user, options: options, template: CONFIRM_MAIL, auth: CONFIRM_MAIL_AUTH, req: req});
 				return api.writeResponse(201, res, null, {error: "Created"});
 			}
@@ -457,7 +457,7 @@ module.exports.router = function(options) {
 	});
 
 	app.post("/useremailconfirmation/cansendemails", /* @callback */ function(req, res){
-		api.writeResponse(200, res, null, {EmailConfigured: Boolean(options.configParams.get("mail.smtp.host"))});
+		api.writeResponse(200, res, null, {EmailConfigured: Boolean(options.configParams.get("mail_smtp_host"))});
 	});
 
 	app.post('/useremailconfirmation', function(req, res){
@@ -490,8 +490,8 @@ module.exports.router = function(options) {
 	app.post('/login/canaddusers', /* @callback */ function(req, res) {
 		return api.writeResponse(200, res, null, {
 			CanAddUsers: canAddUsers(), 
-			ForceEmail: Boolean(options.configParams.get("orion.auth.user.creation.force.email")), 
-			RegistrationURI:options.configParams.get("orion.auth.registration.uri") || undefined});
+			ForceEmail: Boolean(options.configParams.get("orion_auth_user_creation_force_email")), 
+			RegistrationURI:options.configParams.get("orion_auth_registration_uri") || undefined});
 	});
 	
 	app.post('/login', options.authenticate, function(req, res) {

@@ -26,7 +26,7 @@ module.exports = function(options) {
 	if (!fileRoot) { throw new Error('options.fileRoot is required'); }
 	if (!workspaceRoot) { throw new Error('options.workspaceRoot is required'); }
 	
-	var singleUser = options.configParams.get("orion.single.user");
+	var singleUser = options.configParams.get("orion_single_user");
 	
 	var router = express.Router({mergeParams: true});
 	router.use(responseTime({digits: 2, header: "X-Workspace-Response-Time", suffix: true}))

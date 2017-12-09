@@ -24,7 +24,7 @@ module.exports.router = function(options) {
 	if (!fileRoot) { throw new Error('options.fileRoot is required'); }
 	if (!gitRoot) { throw new Error('options.gitRoot is required'); }
 
-	var contextPath = options && options.configParams.get("orion.context.path") || "";
+	var contextPath = options && options.configParams.get("orion_context_path") || "";
 	fileRoot = fileRoot.substring(contextPath.length);
 
 	return express.Router()
@@ -63,8 +63,8 @@ function getPullRequest(req, res) {
 	
 	var clientID,clientSecret;
 	if(options.configParams){
-		clientID =  options.configParams.get("orion.oauth.github.client");
-		clientSecret =  options.configParams.get("orion.oauth.github.secret");
+		clientID =  options.configParams.get("orion_oauth_github_client");
+		clientSecret =  options.configParams.get("orion_oauth_github_secret");
 	}
     
 	var task = new tasks.Task(res, false, true, 0, false);

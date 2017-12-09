@@ -36,7 +36,7 @@ var DESCRIPTION_METASTORE = "This JSON file is at the root of the Orion metadata
 var VERSION = 8;
 
 function getUserRootLocation(options, userId) {
-	return options.configParams.get('orion.single.user') ? nodePath.join(options.configParams.get('orion.single.user.metaLocation') || os.homedir(), '.orion') : nodePath.join.apply(null, metaUtil.readMetaUserFolder(options.workspaceDir, userId));
+	return options.configParams.get('orion_single_user') ? nodePath.join(options.configParams.get('orion.single.user.metaLocation') || os.homedir(), '.orion') : nodePath.join.apply(null, metaUtil.readMetaUserFolder(options.workspaceDir, userId));
 }
 
 function getUserMetadataFileName(options, user) {
@@ -96,7 +96,7 @@ function FsMetastore(options) {
 	this._options = options;
 	this._taskList = {};
 	this._lockMap = {};
-	this._isSingleUser = options.configParams.get('orion.single.user');
+	this._isSingleUser = options.configParams.get('orion_single_user');
 }
 
 FsMetastore.prototype.lock = function(userId, shared) {

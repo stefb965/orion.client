@@ -46,7 +46,7 @@ Orion will then start using your current directory (or a directory you specify o
 See the [Getting Started guide](https://wiki.eclipse.org/Orion/Node/Getting_started#Using_a_global_installation_of_Orionode) for more details.
 
 ### Multi-user server
-By default the server runs in single-user mode. Set `orion.single.user=false` in the `orion.conf` file
+By default the server runs in single-user mode. Set `orion_single_user=false` in the `orion.conf` file
 to enable multiple users. This requires a MongoDB installation.
 
 #### Known Git issues
