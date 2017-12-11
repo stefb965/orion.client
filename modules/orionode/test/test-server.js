@@ -25,11 +25,11 @@ var WORKSPACE = testHelper.WORKSPACE,
 var CONTEXT_PATH = testHelper.CONTEXT_PATH;
 
 var nconf = require("nconf");
-nconf.set("orion.single.user", true);
+nconf.set("orion_single_user", true);
 nconf.set("orion.single.user.metaLocation", METADATA);
 if (CONTEXT_PATH) {
-	nconf.set("orion.context.listenPath", true);
-	nconf.set("orion.context.path", CONTEXT_PATH);
+	nconf.set("orion_context_listenPath", true);
+	nconf.set("orion_context_path", CONTEXT_PATH);
 }
 
 var orion = function(options) {
