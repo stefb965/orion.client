@@ -26,7 +26,7 @@ var CONTEXT_PATH = testHelper.CONTEXT_PATH;
 
 var nconf = require("nconf");
 nconf.set("orion_single_user", true);
-nconf.set("orion.single.user.metaLocation", METADATA);
+nconf.set("orion_single_user_metaLocation", METADATA);
 if (CONTEXT_PATH) {
 	nconf.set("orion_context_listenPath", true);
 	nconf.set("orion_context_path", CONTEXT_PATH);

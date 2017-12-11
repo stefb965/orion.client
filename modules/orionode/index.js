@@ -156,7 +156,7 @@ function startServer(options) {
 	if (options.configParams.get("isElectron")) {
 		app.use('/update', options.authenticate, checkAuthenticated, require('./lib/update').router(options));
 	}
-	if(options.configParams.get("orion.collab.enabled")) {
+	if(options.configParams.get("orion_collab_enabled")) {
 		app.use('/sharedWorkspace', options.authenticate, checkAuthenticated, require('./lib/sharedWorkspace').router(options));
 	}
 	
@@ -199,7 +199,7 @@ function startServer(options) {
 		var prependStaticAssets = (options.configParams.get("prepend_static_assets") || "").split(",");
 		var appendStaticAssets = (options.configParams.get("append_static_assets") || "").split(",");
 		var orionode_static = path.normalize(path.join(LIBS, 'orionode.client/'));
-		if(options.configParams.get("orion.collab.enabled")) {
+		if(options.configParams.get("orion_collab_enabled")) {
 			appendStaticAssets.push('./bundles/org.eclipse.orion.client.collab/web');
 		}
 		app.use(require('./lib/orion_static')(Object.assign({orionClientRoot: ORION_CLIENT, orionode_static: orionode_static, prependStaticAssets: prependStaticAssets, appendStaticAssets: appendStaticAssets}, staticCacheOption)));

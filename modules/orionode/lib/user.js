@@ -499,8 +499,8 @@ module.exports.router = function(options) {
 			return api.writeResponse(200, res);
 		}
 		//add the web token with the response
-		if (options.configParams.get("orion.collab.enabled") && options.configParams.get("orion.jwt.secret")) {
-			req.user.jwt = jwt.sign({'username': req.user.username}, options.configParams.get("orion.jwt.secret"));
+		if (options.configParams.get("orion_collab_enabled") && options.configParams.get("orion_jwt_secret")) {
+			req.user.jwt = jwt.sign({'username': req.user.username}, options.configParams.get("orion_jwt_secret"));
 		}
 		return api.writeResponse(200, res, null, userJSON(req.user));
 	});

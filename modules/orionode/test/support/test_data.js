@@ -151,8 +151,8 @@ exports.setupOrionServer = function setupOrionServer(helperMiddleware){
 			var options = {};
 			options.workspaceDir = testHelper.WORKSPACE;
 			options.configParams = nconf;
-			options.configParams.set("orion.single.user.metaLocation", testHelper.METADATA);
-//			options.configParams = { "orion_single_user": true, "orion.single.user.metaLocation": testHelper.METADATA };
+			options.configParams.set("orion_single_user_metaLocation", testHelper.METADATA);
+//			options.configParams = { "orion_single_user": true, "orion_single_user_metaLocation": testHelper.METADATA };
 			if (testHelper.CONTEXT_PATH) {
 				options.configParams.set("orion_context_listenPath", true);
 				options.configParams.set("orion_context_path", testHelper.CONTEXT_PATH);
