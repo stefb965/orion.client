@@ -171,7 +171,9 @@ function startServer(cb) {
 		configParams.set("port", port);
 		logger.info(util.format('Listening on port %d...', port));
 		if (cb) {
-			cb();
+			cb({
+				orion: orion
+			});
 		}
 	});
 	server.on('error', function(err) {

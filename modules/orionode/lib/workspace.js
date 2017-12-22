@@ -72,17 +72,6 @@ module.exports = function(options) {
 		});
 	}
 	
-	function sendWorkspaceChangedEvent(workspace, update) {
-		var isElectron = options.configParams.get("isElectron");
-		if(isElectron && workspace.location){
-			var originalWorkspace = options.workspaceDir;
-			options.workspaceDir = workspace.location;
-			if(workspace.location !== originalWorkspace){
-				api.getOrionEE().emit("workspace-changed", [workspace.id, update]);
-			}
-		}
-	}
-
 	function getWorkspace(req, res) {
 		var rest = req.params["0"].substring(1);
 		var store = fileUtil.getMetastore(req);
@@ -111,7 +100,6 @@ module.exports = function(options) {
 				return writeError(404, res, "Workspace not found: " + rest);
 			}
 			getWorkspaceJson(req, workspace).then(function(workspaceJson){
-				sendWorkspaceChangedEvent(workspace, true);
 				api.writeResponse(null, res, null, workspaceJson, true);
 			});
 		});
@@ -146,7 +134,6 @@ module.exports = function(options) {
 					return writeError(singleUser ? 403 : 400, res, err);
 				}
 				getWorkspaceJson(req, workspace).then(function(workspaceJson) {
-					sendWorkspaceChangedEvent(workspace, false);
 					return api.writeResponse(201, res, null, workspaceJson, true);
 				}).catch(function(err) {
 					api.writeResponse(400, res, null, err);

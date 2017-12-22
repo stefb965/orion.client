@@ -68,6 +68,11 @@ module.exports.start = function(startServer, configParams) {
 		}
 		return false;
 	}
+
+	if (handleSquirrelEvent()) {
+		// Squirrel event handled and app will exit in 1000ms
+		return;
+	}
 	
 	function executeSquirrelCommand(args, done) {
 		var updateDotExe = path.resolve(path.dirname(process.execPath), '..', 'Update.exe');
@@ -125,7 +130,7 @@ module.exports.start = function(startServer, configParams) {
 		
 		nextWindow.on("close", function(event) {
 			event.preventDefault();
-			store.getUser(electronUserName,function(err, data){
+			store.getUser(electronUserName, function(err, data) {
 				if(err){
 					logger.error(err);
 				}
@@ -159,97 +164,14 @@ module.exports.start = function(startServer, configParams) {
 				scheduleUpdateChecks();
 			}
 		});
-		api.getOrionEE().on("workspace-changed", function(dataArray){
-			var workspaceId = dataArray[0];
-			var needToUpdateWorkspaceIdArray = dataArray[1];
-			if(needToUpdateWorkspaceIdArray){
-				// This is when user switch between workspace
-				// Update workspaceID array order in user prefs
-				store.getUser(electronUserName,function(err, data){
-					if(err){
-						logger.error(err);
-					}
-					data.workspaces.splice(data.workspaces.indexOf(workspaceId), 1);
-					data.workspaces.unshift(workspaceId);
-					store.updateUser(electronUserName, {workspaceIds:data.workspaces}, function(err){
-						if(err) {
-							logger.error(err);
-						}
-						nextWindow.webContents.executeJavaScript('closeNoneEditTabs();');
-						var url = "http://localhost:" + configParams.get("port") + "/git/git-repository.html#,workspace=/workspace/" + workspaceId;
-						nextWindow.webContents.executeJavaScript('createTab("' + url + '", true);');
-					});
-				});
-			} else {
-				// This is when user open a new folder ,so need to re-create edit page as well to refresh "swtich to" list
-				nextWindow.webContents.executeJavaScript('closeAllTabs();');
-				var hostUrl = "http://localhost:" + configParams.get("port");
-				nextWindow.webContents.executeJavaScript('createTab("' + hostUrl + "/edit/edit.html#/workspace/" + workspaceId + '");');
-				var giturl = hostUrl + "/git/git-repository.html#,workspace=/workspace/" + workspaceId;
-				nextWindow.webContents.executeJavaScript('createTab("' + giturl + '", true);');
-			}
-		});
 		return nextWindow;
 	} // end of createWindow()
 	
-	function createWorkspaceForDir(workspaceLocation){
-		var pathSegs = workspaceLocation.split(/[\\\/]/);
-		var folderName = pathSegs[pathSegs.length - 1];
-		var workspaceId = Date.now() + folderName;
-		var workspaceData = {name: workspaceLocation, id: workspaceId, location: workspaceLocation};
-		return new Promise(function(fulfill, reject){
-			store.createWorkspace(electronUserName, workspaceData, function(err, workspace) {
-				if (err) {
-					logger.error(err);
-					return reject();
-				}
-				return fulfill();
-			});
-		});
-	}
-	// End of functions declaration
-
-	var userPrefs = prefs.readElectronPrefs();
-	allPrefs = new MODEL(userPrefs.Properties || {});
-
-	if (feedURL) {
-		var updateChannel = allPrefs.get(UPDATE_CHANNEL_NAME_PREF_KEY), latestUpdateURL;
-		if(updateChannel === MODEL.NOT_EXIST){
-			updateChannel = configParams.get("orion.autoUpdater.defaultChannel");
-		}
-		if (platform === "linux") {
-			latestUpdateURL = feedURL + '/download/channel/' + updateChannel + '/linux';
-		} else {
-			latestUpdateURL = feedURL + '/update/channel/' + updateChannel + '/' + platform + "_" + arch + '/' + version;
-		}
-		var resolveURL = feedURL + '/api/resolve?platform=' + platform + '&channel=' + updateChannel;
-		
-		logger.debug("resolveURL", resolveURL);
-		logger.debug("latestUpdateURL", latestUpdateURL);
-		autoUpdater.setResolveURL(resolveURL);
-		autoUpdater.setFeedURL(latestUpdateURL);
-	}
-
-	if (handleSquirrelEvent()) {
-		// Squirrel event handled and app will exit in 1000ms
-		return;
-	}
-
-	var readyToOpenPath, relativeFileUrl;
-	electron.app.on('open-file', function(event, path) {
-		readyToOpenPath = path;
-	});
-	electron.app.on('ready', function() {
-		var updateDialog = false,
-			linuxDialog = false,
-			mostRecentWorkspaceId = userPrefs.WorkspaceIds && userPrefs.WorkspaceIds[0],
-			Menu = electron.Menu;
-			
-		updateDownloaded  = false;
-			
+	function setupMenuBar() {
+		var Menu = electron.Menu, template;
 		if (process.platform === 'darwin') {
 			if (!Menu.getApplicationMenu()) {
-				var template = [{
+				template = [{
 					label: name,
 					submenu: [
 						{role: 'about'},
@@ -296,7 +218,7 @@ module.exports.start = function(startServer, configParams) {
 			}
 		} else {
 			//always add Ctrl+Shift+I for non-MacOS platforms - matches the browser devs tools shortcut
-			var template = [makeDevToolMenuItem("Devtool","Ctrl+Shift+I")];
+			template = [makeDevToolMenuItem("Devtool","Ctrl+Shift+I")];
 			Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 		}
 		if(process.platform === "win32") {
@@ -305,7 +227,32 @@ module.exports.start = function(startServer, configParams) {
 			menu.append(new electron.MenuItem(makeDevToolMenuItem("DevtoolforWin32","F12")));
 			Menu.setApplicationMenu(menu);
 		}
-		
+	}
+	
+	function setupAutoUpdate() {
+		var updateDialog = false,
+			linuxDialog = false;
+			
+		if (feedURL) {
+			var updateChannel = allPrefs.get(UPDATE_CHANNEL_NAME_PREF_KEY), latestUpdateURL;
+			if(updateChannel === MODEL.NOT_EXIST){
+				updateChannel = configParams.get("orion.autoUpdater.defaultChannel");
+			}
+			if (platform === "linux") {
+				latestUpdateURL = feedURL + '/download/channel/' + updateChannel + '/linux';
+			} else {
+				latestUpdateURL = feedURL + '/update/channel/' + updateChannel + '/' + platform + "_" + arch + '/' + version;
+			}
+			var resolveURL = feedURL + '/api/resolve?platform=' + platform + '&channel=' + updateChannel;
+			
+			logger.debug("resolveURL", resolveURL);
+			logger.debug("latestUpdateURL", latestUpdateURL);
+			autoUpdater.setResolveURL(resolveURL);
+			autoUpdater.setFeedURL(latestUpdateURL);
+		}
+			
+		updateDownloaded  = false;
+			
 		autoUpdater.on("error", function(error) {
 			logger.error(error);
 		});
@@ -346,7 +293,40 @@ module.exports.start = function(startServer, configParams) {
 				updateDialog = true;
 			}
 		});
+	}
+	
+	function createWorkspaceForDir(workspaceLocation){
+		var pathSegs = workspaceLocation.split(/[\\\/]/);
+		var folderName = pathSegs[pathSegs.length - 1];
+		var workspaceId = Date.now() + folderName;
+		var workspaceData = {name: workspaceLocation, id: workspaceId, location: workspaceLocation};
+		return new Promise(function(fulfill, reject){
+			store.createWorkspace(electronUserName, workspaceData, function(err, workspace) {
+				if (err) {
+					logger.error(err);
+					return reject();
+				}
+				return fulfill();
+			});
+		});
+	}
+	// End of functions declaration
+
+	var userPrefs = prefs.readElectronPrefs();
+	allPrefs = new MODEL(userPrefs.Properties || {});
+
+
+	var readyToOpenPath, relativeFileUrl;
+	electron.app.on('open-file', function(event, path) {
+		readyToOpenPath = path;
+	});
+	electron.app.on('ready', function() {
 		var waitFor;
+		var mostRecentWorkspaceId = userPrefs.WorkspaceIds && userPrefs.WorkspaceIds[0];
+			
+		setupMenuBar();
+		setupAutoUpdate();
+		
 		if (mostRecentWorkspaceId) {
 			waitFor = new Promise(function(fulfill, reject){
 				store.getWorkspace(mostRecentWorkspaceId, function(err,workspaceJson){
@@ -395,7 +375,7 @@ module.exports.start = function(startServer, configParams) {
 		
 		Promise.resolve(waitFor)
 		.then(function(){
-			startServer(function() {
+			startServer(function(options) {
 				var mainWindow,
 					hostUrl = "http://localhost:" + configParams.get("port"),
 					toOpen, 
