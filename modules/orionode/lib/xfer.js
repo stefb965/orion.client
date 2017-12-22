@@ -107,8 +107,10 @@ function reportTransferFailure(res, err) {
 
 function postImportXfer(req, res) {
 	var rest = req.params["0"];
-	var file = fileUtil.getFile(req, rest);
-	postImportXferTo(req, res, file);
+	fileUtil.getFile(req, rest, function(error, file) {
+		if (error) return writeError(error.code || 404, res, error);
+		postImportXferTo(req, res, file);
+	});
 }
 
 function postImportXferTo(req, res, file) {
@@ -288,8 +290,11 @@ function completeTransfer(req, res, tempFile, file, fileName, xferOptions, shoul
 	
 function getXfer(req, res) {
 	var rest = req.params["0"];
-	var file = fileUtil.getFile(req, rest);
-	getXferFrom(req, res, file);
+	fileUtil.getFile(req, rest, function(error, file) {
+		if (error) return writeError(error.code || 404, res, error);
+		getXferFrom(req, res, file);
+	});
+
 }
 
 function getXferFrom(req, res, file) {

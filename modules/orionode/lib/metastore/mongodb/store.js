@@ -203,6 +203,8 @@ Object.assign(MongoDbMetastore.prototype, {
 			if (user && user.workspaces) {
 				user.workspaces.some(function(w) {
 					if (w.id === workspaceId) {
+						//TODO
+//						workspace.location 
 						workspace = w;
 						return true;
 					}

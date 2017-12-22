@@ -43,10 +43,10 @@ function getIndex(req, res) {
 	return clone.getRepo(req)
 	.then(function(repoResult) {
 		repo = repoResult;
-		filePath = clone.getfileRelativePath(repo,req);
-		return repo;
+		return clone.getfileRelativePath(repo,req);
 	})
-	.then(function(repo) {
+	.then(function(_path) {
+		filePath = _path;
 		return repo.refreshIndex();
 	})
 	.then(function(indexResult) {
@@ -136,11 +136,13 @@ function putIndex(req, res) {
 }
 
 function postIndex(req, res) {
-	var repo;
+	var repo, filePath;
 	var resetType = req.body.Reset;
-	var filePath = clone.getfileAbsolutePath(req); 
-	
-	return clone.getRepo(req)
+	return clone.getfileAbsolutePath(req)
+	.then(function(_path) {
+		filePath = _path;
+		return clone.getRepo(req);
+	})
 	.then(function(_repo) {
 		repo = _repo;
 		return git.AnnotatedCommit.fromRevspec(repo, req.body.Commit || "HEAD");

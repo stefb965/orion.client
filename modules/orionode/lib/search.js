@@ -144,33 +144,40 @@ module.exports = function(options) {
 		loc = loc.replace(/^\/workspace/, "");
 		loc = loc.replace(/\*$/, "");
 			
-		var file = fileUtil.getFile(req, loc);
-		
-		if (file) {
-			file.fileRoot = api.join(typeof req.contextPath === 'string' ? req.contextPath : '', "file", file.workspaceId);
-			searchOpts.searchScope = [file];
-		} else {
-			var store = fileUtil.getMetastore(req);
-			searchOpts.searchScope = req.user.workspaces.map(function(w) {
-				var path = store.getWorkspaceDir(w);
-				return {
-					path: path,
-					workspaceId: w,
-					workspaceDir: path,
-					fileRoot: api.join(typeof req.contextPath === 'string' ? req.contextPath : '', "file", w)
-				};
+		fileUtil.getFile(req, loc, function(error, file) {
+			var waitFor;
+			if (file) {
+				file.fileRoot = api.join(typeof req.contextPath === 'string' ? req.contextPath : '', "file", file.workspaceId);
+				waitFor = Promise.resolve([file]);
+			} else {
+				var store = fileUtil.getMetastore(req);
+				waitFor = Promise.all(req.user.workspaces.map(function(w) {
+					return new Promise(function(fulfill, reject) {
+						store.getWorkspace(w, function(error, workspace) {
+							if (error) return reject(error);
+							fulfill({
+								path: workspace.location,
+								workspaceId: w,
+								workspaceDir: workspace.location,
+								fileRoot: api.join(typeof req.contextPath === 'string' ? req.contextPath : '', "file", w)
+							});
+						});
+					});
+				}));
+			}
+			waitFor.then(function(scopes) {
+				searchOpts.searchScope = scopes;
+				if (!searchOpts.searchScope || !searchOpts.searchScope.length) {
+					api.writeError(400, res);
+					return;
+				}
+				return search(searchOpts);
+			})
+			.then(function(result) {
+				return api.writeResponse(200, res, null, result);
+			}).catch (function(err) {
+				api.writeError(400, res, err);
 			});
-		}
-		
-		if (!searchOpts.searchScope || !searchOpts.searchScope.length) {
-			api.writeError(400, res);
-			return;
-		}
-
-		search(searchOpts).then(function(result) {
-			return api.writeResponse(200, res, null, result);
-		}).catch (function(err) {
-			api.writeError(400, res, err);
 		});
 	});
 };

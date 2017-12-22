@@ -52,18 +52,17 @@ function getapps(req, res){
 		if(encodeName){
 			return getAppwithAppName(req.user.username, task,encodeName,appTarget);
 		}else if(encodedContentLocation) {
-			var manifestLocation = toOrionLocation(req, api.decodeURIComponent(encodedContentLocation));
-			if(manifestLocation){
-				return manifests.retrieveManifestFile(req, res, manifestLocation)
+			return fileUtil.getFileAsync(req, api.decodeURIComponent(encodedContentLocation).substring(fileRoot.length))
+			.then(function(file) {
+				return manifests.retrieveManifestFile(req, res, file.path)
 				.then(function(manifest){
 					if(manifest && manifest.applications &&  manifest.applications[0]){
 						return getAppwithAppName(req.user.username, task, manifest.applications[0].name, appTarget);
 					}
 				});
-			}
-		}else{
-			return getAppwithoutName(req, task, appTarget);
+			});
 		}
+		return getAppwithoutName(req, task, appTarget);
 	 }).catch(function(err){
 		 target.caughtErrorHandler(task, err);
 	 });
@@ -173,18 +172,6 @@ function _getAppwithAppName(userId, encodeName, appTarget){
 		});
 	});
 }
-function toOrionLocation(req, location){
-	if(location && location.length !== 0 && location.indexOf(fileRoot) === 0){
-		var file = fileUtil.getFile(req, location.substring(fileRoot.length));
-		return file.path; 
-	}
-}
-function toAppLocation(req,location){
-	if(location && location.length !== 0 && location.indexOf(fileRoot) === 0){
-		var file = fileUtil.getFile(req, location.substring(fileRoot.length));
-		return path.join(file.workspaceDir, location.replace(fileRoot,"").split("/")[2]);
-	}
-}
 
 function putapps(req, res){
 	var theApp = {};
@@ -218,8 +205,6 @@ function putapps(req, res){
 //	}
 	var state = req.body.State;
 	var appName = req.body.Name;
-	var contentLocation = toOrionLocation(req, req.body.ContentLocation);
-	theApp.appStore = toAppLocation(req, req.body.ContentLocation);
 	theApp.deploymentPackager = req.body.Packager;
 	var manifestJSON = req.body.Manifest;
 	var instrumentationJSON = req.body.Instrumentation;
@@ -227,8 +212,13 @@ function putapps(req, res){
 	var app = null;
 	var manifestAppName = null;
 	var restart;
-	var appTarget;
-	return target.computeTarget(req.user.username, target.fullTarget(req,targetRequest))
+	var appTarget, rest = req.body.ContentLocation.substring(fileRoot.length), contentLocation;
+	return fileUtil.getFileAsync(req, rest)
+	.then(function(file) {
+		contentLocation = file.path;
+		theApp.appStore = path.join(file.workspaceDir, rest.split("/")[2]);
+		return target.computeTarget(req.user.username, target.fullTarget(req,targetRequest));
+	})
 	.then(function(resultTarget){
 		appTarget = resultTarget;
 		if(contentLocation && !state){

@@ -33,13 +33,16 @@ module.exports.router = function(options) {
 	.get('/:refName'+ fileRoot + "/*", getBlame);
 	
 function getBlame(req, res) {
-	var blamerepo,fileDir, fileRelativePath;
+	var blamerepo, fileDir, fileRelativePath;
 	clone.getRepo(req)
 	.then(function(repo) {
 		blamerepo = repo;
 		fileDir = clone.getfileDir(repo,req);
-		fileRelativePath = clone.getfileRelativePath(repo,req);
-		return git.Blame.file(repo,fileRelativePath, git.Blame.FLAG.NORMAL);
+		return clone.getfileRelativePath(repo,req);
+	})
+	.then(function(_path) {
+		fileRelativePath = _path;
+		return git.Blame.file(blamerepo, fileRelativePath, git.Blame.FLAG.NORMAL);
 	})
 	.then(function(blame){
 		var hunkNum = blame.getHunkCount(); 

@@ -75,6 +75,7 @@ function virtualHost(vhost, req, res, next) {
 				if (options.configParams.get("orion.single.user")) {
 					path = mPath.join(options.workspaceDir, mapping.Target, relative);
 				} else {
+					//TODO
 					var file = fileUtil.getFile(req, mapping.Target);
 					path = mPath.join(file.path, relative);
 				}

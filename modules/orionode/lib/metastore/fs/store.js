@@ -271,7 +271,7 @@ Object.assign(FsMetastore.prototype, {
 	getWorkspace: function(workspaceId, callback) {
 		var userId = metaUtil.decodeUserIdFromWorkspaceId(workspaceId);
 		if(!userId) {
-			return callback(new Error("userId invalid"))
+			return callback(new Error("userId invalid"));
 		}
 		Promise.using(this.lock(userId, true), function() {
 			return new Promise(function(resolve, reject) {
@@ -287,9 +287,7 @@ Object.assign(FsMetastore.prototype, {
 						"name": metadata.FullName,
 						"properties": {}
 					};
-					if(metadata.ContentLocation){
-						workspace.location = metadata.ContentLocation;
-					}
+					workspace.location = metadata.ContentLocation || this.getWorkspaceDir(workspace.id);
 					// TODO Workspace properties is where tabs info goes, implement later
 					var propertyKeys = Object.keys(metadata.Properties);
 					propertyKeys.forEach(function(propertyKey) {

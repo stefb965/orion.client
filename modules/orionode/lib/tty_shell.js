@@ -48,17 +48,18 @@ exports.install = function(options, io) {
 			callback(userWorkspaceDir);
 			return;
 		}
-		var file = fileUtil.getFile(req, api.decodeURIComponent(rest));
-		if(!file) {
-			callback(userWorkspaceDir);
-			return;
-		}
-		var cwd = file.path;
-		fs.stat(cwd, function(err, stats) {
-			if (err || !stats.isDirectory()) {
-				cwd = file.workspaceDir || userWorkspaceDir;
+		fileUtil.getFile(req, api.decodeURIComponent(rest), function(error, file) {
+			if (error || !file) {
+				callback(userWorkspaceDir);
+				return;
 			}
-			callback(cwd);
+			var cwd = file.path;
+			fs.stat(cwd, function(err, stats) {
+				if (err || !stats.isDirectory()) {
+					cwd = file.workspaceDir || userWorkspaceDir;
+				}
+				callback(cwd);
+			});
 		});
 	}
 

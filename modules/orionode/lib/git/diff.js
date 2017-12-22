@@ -55,8 +55,11 @@ function getDiff(req, res) {
 	return clone.getRepo(req)
 	.then(function(r) {
 		repo = r;
-		filePath = clone.getfileRelativePath(repo,req); 
-		var fileDir = clone.getfileDir(repo,req); 
+		return clone.getfileRelativePath(repo,req);
+	})
+	.then(function(_path) {
+		filePath = _path;
+		var fileDir = clone.getfileDir(repo, req);
 		var includeURIs = parts.indexOf("uris") !== -1;
 		var includeDiff = parts.indexOf("diff") !== -1;
 		var includeDiffs = parts.indexOf("diffs") !== -1;

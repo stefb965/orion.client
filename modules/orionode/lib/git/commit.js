@@ -373,7 +373,6 @@ function getCommitLog(req, res) {
 		var keep = [];
 		var ignore = [];
 		var commitJSONs = {};
-		filterPath = clone.getfileRelativePath(repo,req); 
 		function walk() {
 			return revWalk.next()
 			.then(function(oid) {
@@ -519,7 +518,11 @@ function getCommitLog(req, res) {
 	clone.getRepo(req)
 	.then(function(_repo) {
 		repo = _repo;
-		fileDir = clone.getfileDir(repo,req);
+		return clone.getfileRelativePath(repo, req); 
+	})
+	.then(function(_path) {
+		filterPath = _path;
+		fileDir = clone.getfileDir(repo, req);
 		if (mergeBase) {
 			var names = scope.split("..");
 			var commit0, commit1,mergeBaseCommitOid;
@@ -727,8 +730,11 @@ function getCommitBody(req, res) {
 	clone.getRepo(req)
 	.then(function(repo) {
 		theRepo = repo;
-		filePath = clone.getfileRelativePath(repo,req);
-		return repo.getReferenceCommit(scope);
+		return clone.getfileRelativePath(repo, req);
+	})
+	.then(function(_path) {
+		filePath = _path;
+		return theRepo.getReferenceCommit(scope);
 	})
 	.catch(function() {
 		return theRepo.getCommit(scope);

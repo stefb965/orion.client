@@ -172,38 +172,40 @@ module.exports.router = function(options) {
 	 */
 	function putFile(req, res) {
 		var rest = req.params["0"];
-		var file = fileUtil.getFile(req, rest);
-		var fileRoot = options.fileRoot;
-		if (req.params['parts'] === 'meta') {
-			// TODO implement put of file attributes
-			return sendStatus(501, res);
-		}
-		function write() {
-			var ws = fs.createWriteStream(file.path);
-			ws.on('finish', function() {
-				fileUtil.withStatsAndETag(file.path, function(error, stats, etag) {
-					if (error && error.code === 'ENOENT') {
-						return writeResponse(404, res);
-					}
-					writeFileMetadata(fileRoot, req, res, file.path, stats, etag);
+		fileUtil.getFile(req, rest, function(error, file) {
+			if (error) return writeError(error.code || 404, res, error);
+			var fileRoot = options.fileRoot;
+			if (req.params['parts'] === 'meta') {
+				// TODO implement put of file attributes
+				return sendStatus(501, res);
+			}
+			function write() {
+				var ws = fs.createWriteStream(file.path);
+				ws.on('finish', function() {
+					fileUtil.withStatsAndETag(file.path, function(error, stats, etag) {
+						if (error && error.code === 'ENOENT') {
+							return writeResponse(404, res);
+						}
+						writeFileMetadata(fileRoot, req, res, file.path, stats, etag);
+					});
 				});
+				ws.on('error', function(err) {
+					writeError(500, res, err);
+				});
+				req.pipe(ws);
+			}
+			var ifMatchHeader = req.headers['if-match'];
+			fileUtil.withETag(file.path, function(error, etag) {
+				if (error && error.code === 'ENOENT') {
+					writeResponse(404, res);
+				}
+				else if (ifMatchHeader && ifMatchHeader !== etag) {
+					writeResponse(412, res);
+				}
+				else {
+					write();
+				}
 			});
-			ws.on('error', function(err) {
-				writeError(500, res, err);
-			});
-			req.pipe(ws);
-		}
-		var ifMatchHeader = req.headers['if-match'];
-		fileUtil.withETag(file.path, function(error, etag) {
-			if (error && error.code === 'ENOENT') {
-				writeResponse(404, res);
-			}
-			else if (ifMatchHeader && ifMatchHeader !== etag) {
-				writeResponse(412, res);
-			}
-			else {
-				write();
-			}
 		});
 	}
 
@@ -223,8 +225,10 @@ module.exports.router = function(options) {
 		}
 		
 		req.user.workspaceDir = workspaceDir;
-		var file = fileUtil.getFile(req, api.join(rest, name));
-		fileUtil.handleFilePOST("/workspace", sharedWorkspaceFileRoot, req, res, file);
+		fileUtil.getFile(req, api.join(rest, name), function(error, file) {
+			if (error) return writeError(error.code || 404, res, error);
+			fileUtil.handleFilePOST("/workspace", sharedWorkspaceFileRoot, req, res, file);
+		});
 	}
 
 	/**
@@ -232,26 +236,28 @@ module.exports.router = function(options) {
 	 */
 	function deleteFile(req, res) {
 		var rest = req.params["0"];
-		var file = fileUtil.getFile(req, rest);
-		fileUtil.withStatsAndETag(file.path, function(error, stats, etag) {
-			var callback = function(error) {
-				if (error) {
-					return writeError(500, res, error);
+		fileUtil.getFile(req, rest, function(error, file) {
+			if (error) return writeError(error.code || 404, res, error);
+			fileUtil.withStatsAndETag(file.path, function(error, stats, etag) {
+				var callback = function(error) {
+					if (error) {
+						return writeError(500, res, error);
+					}
+					sendStatus(204, res);
+				};
+				var ifMatchHeader = req.headers['if-match'];
+				if (error && error.code === 'ENOENT') {
+					return sendStatus(204, res);
+				} else if (error) {
+					writeError(500, res, error);
+				} else if (ifMatchHeader && ifMatchHeader !== etag) {
+					return sendStatus(412, res);
+				} else if (stats.isDirectory()) {
+					fileUtil.rumRuff(file.path, callback);
+				} else {
+					fs.unlink(file.path, callback);
 				}
-				sendStatus(204, res);
-			};
-			var ifMatchHeader = req.headers['if-match'];
-			if (error && error.code === 'ENOENT') {
-				return sendStatus(204, res);
-			} else if (error) {
-				writeError(500, res, error);
-			} else if (ifMatchHeader && ifMatchHeader !== etag) {
-				return sendStatus(412, res);
-			} else if (stats.isDirectory()) {
-				fileUtil.rumRuff(file.path, callback);
-			} else {
-				fs.unlink(file.path, callback);
-			}
+			});
 		});
 	}
 
@@ -350,13 +356,15 @@ module.exports.router = function(options) {
 	 */
 	function getXfer(req, res) {
 		var rest = req.params["0"];
-		var file = fileUtil.getFile(req, rest);
+		fileUtil.getFile(req, rest, function(error, file) {
+			if (error) return writeError(error.code || 404, res, error);
 		
-		if (path.extname(file.path) !== ".zip") {
-			return writeError(400, res, "Export is not a zip");
-		}
-		
-		xfer.getXferFrom(req, res, file);
+			if (path.extname(file.path) !== ".zip") {
+				return writeError(400, res, "Export is not a zip");
+			}
+			
+			xfer.getXferFrom(req, res, file);
+		});
 	}
 
 	/**
@@ -364,7 +372,9 @@ module.exports.router = function(options) {
 	 */
 	function postImportXfer(req, res) {
 		var rest = req.params["0"];
-		var file = fileUtil.getFile(req, rest);
-		xfer.postImportXferTo(req, res, file.path);
+		fileUtil.getFile(req, rest, function(error, file) {
+			if (error) return writeError(error.code || 404, res, error);
+			xfer.postImportXferTo(req, res, file.path);
+		});
 	}
 };

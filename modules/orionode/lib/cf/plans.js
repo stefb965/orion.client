@@ -10,7 +10,6 @@
  *******************************************************************************/
 /*eslint-env node, express, js-yaml*/
 var express = require("express");
-var fs = require("fs");
 var path = require("path");
 var manifests = require("./manifests");
 var xfer = require("../xfer");
@@ -45,68 +44,70 @@ function planJson(type, manifest, planner, wizard, required){
 
 function checkFileExists(path) {
 	try {
-		return fs.statSync(path).isFile();
+		return bluebirdfs.statSync(path).isFile();
 	}
 	catch (err) {
 		return false;
 	}
 }
 	
-function getplans(req, res){
+function getplans(req, res) {
 	var uri = req.originalUrl.substring(req.baseUrl.length + req.contextPath.length);
 	req.user.checkRights(req.user.username, uri, req, res, function(){
-		var filePath = manifests.retrieveProjectFilePath(req);
-		fs.lstat(filePath, function(err, state){
-			if(err){
-				return writeError(404, res, err.message);
-			}
+		var filePath;
+		manifests.retrieveProjectFilePath(req)
+		.then(function(_path) {
+			filePath = _path;
+			return bluebirdfs.statAsync(filePath);
+		})
+		.then(function(state) {
 			if(state.isFile()){
 				filePath = path.dirname(filePath);
 			}
-			return manifests.retrieveManifestFile(req, res)
-			.then(function(manifest){
-				var children = [];
-				function generatePlansforManifest(){
-					function generateGenericPlan(){
-						return planJson("generic", manifest, "ds.GenericDeploymentPlanner", "generic");
-					}
-					function generateNodePlan(){
-						if(checkFileExists(path.join(filePath, "package.json"))){
-							var applicationKeys = Object.keys(manifest.applications[0]);
-							var cloneManifest = { "applications": [{}] };
-							var required = [];
-							applicationKeys.forEach(function(key){
-								cloneManifest.applications[0][key] = manifest.applications[0][key];
-							});
-							if (!cloneManifest.applications[0]["command"]) {
-								// TODO "command" attribute checking by looking up Procfile
-								// TODO "command" attribute checking by looking up package.json
-								if (checkFileExists(path.join(filePath, "server.js"))) { // node.js application requires a start command
-									cloneManifest.applications[0]["command"] = "node server.js";
-								}
-								else if (checkFileExists(path.join(filePath, "app.js"))) {
-									cloneManifest.applications[0]["command"] = "node app.js";
-								}
-								else {
-									required.push("command");
-								}
+			return manifests.retrieveManifestFile(req, res);
+		})
+		.then(function(manifest){
+			var children = [];
+			function generatePlansforManifest(){
+				function generateGenericPlan(){
+					return planJson("generic", manifest, "ds.GenericDeploymentPlanner", "generic");
+				}
+				function generateNodePlan(){
+					if(checkFileExists(path.join(filePath, "package.json"))){
+						var applicationKeys = Object.keys(manifest.applications[0]);
+						var cloneManifest = { "applications": [{}] };
+						var required = [];
+						applicationKeys.forEach(function(key){
+							cloneManifest.applications[0][key] = manifest.applications[0][key];
+						});
+						if (!cloneManifest.applications[0]["command"]) {
+							// TODO "command" attribute checking by looking up Procfile
+							// TODO "command" attribute checking by looking up package.json
+							if (checkFileExists(path.join(filePath, "server.js"))) { // node.js application requires a start command
+								cloneManifest.applications[0]["command"] = "node server.js";
 							}
-							return planJson("node.js", cloneManifest, "nodejs.NodeJSDeploymentPlanner", "nodejs", required);
+							else if (checkFileExists(path.join(filePath, "app.js"))) {
+								cloneManifest.applications[0]["command"] = "node app.js";
+							}
+							else {
+								required.push("command");
+							}
 						}
-					}
-					var genericPlan = generateGenericPlan();
-					var nodePlan = generateNodePlan();
-					children.push(genericPlan);
-					if(nodePlan){
-						children.push(nodePlan);
+						return planJson("node.js", cloneManifest, "nodejs.NodeJSDeploymentPlanner", "nodejs", required);
 					}
 				}
-				generatePlansforManifest();
-				var result =  {"Children": children};
-				writeResponse(200, res, null, result);
-			}).catch(function(err){
-				return writeError(404, res, err.message);
-			});
+				var genericPlan = generateGenericPlan();
+				var nodePlan = generateNodePlan();
+				children.push(genericPlan);
+				if(nodePlan){
+					children.push(nodePlan);
+				}
+			}
+			generatePlansforManifest();
+			var result =  {"Children": children};
+			writeResponse(200, res, null, result);
+		}).catch(function(err){
+			return writeError(404, res, err.message);
 		});
 	});
 }

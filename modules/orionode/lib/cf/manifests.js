@@ -73,35 +73,37 @@ var retrieveManifestFile = module.exports.retrieveManifestFile = function retrie
 	return new Promise(function(fulfill,reject) {
 		var uri = req.originalUrl.substring(req.baseUrl.length + (typeof req.contextPath === 'string' ? req.contextPath.length : 0));
 		req.user.checkRights(req.user.username, uri, req, res, function(){
-			var filePath = manifestAbsoluteLocation ? manifestAbsoluteLocation : retrieveProjectFilePath(req);
-			if(!filePath) {
-				var errorStatus = new Error("Could not find manifest.");
-				errorStatus.code = "404";
-				return reject(errorStatus);
-			}
-			//if strict only try to parse the manifest given, if not, try to find a 'manifest.yml' in the parent dir if the file does not exist
-			var isStrict = req.query && Boolean(req.query.Strict);
-			return fs.readFile(filePath, "utf8", function(err, fileContent) {
-				if(err && (err.code === "ENOENT" || err.code === "EISDIR")) {
-					if(isStrict) {
-						var errorStatus = new Error(err.message);
-						errorStatus.code = 404;
-						return api.writeError(404, res, err);
-					}
-					var base = path.basename(filePath);
-					if(typeof base === 'string') {
-						filePath = path.join(filePath, 'manifest.yml');
-						return fs.readFile(filePath, "utf8", function(err, fileContent) {
-							if(err && err.code !== 'ENOENT') {
-								var errorStatus = new Error(err.message);
-								errorStatus.code = 404;
-								return reject(errorStatus);
-							}
-							return fulfill(fileContent);
-						});
-					}
+			(manifestAbsoluteLocation ? Promise.resolve(manifestAbsoluteLocation) : retrieveProjectFilePath(req))
+			.then(function(filePath) {
+				if(!filePath) {
+					var errorStatus = new Error("Could not find manifest.");
+					errorStatus.code = "404";
+					return reject(errorStatus);
 				}
-				fulfill(fileContent);
+				//if strict only try to parse the manifest given, if not, try to find a 'manifest.yml' in the parent dir if the file does not exist
+				var isStrict = req.query && Boolean(req.query.Strict);
+				return fs.readFile(filePath, "utf8", function(err, fileContent) {
+					if(err && (err.code === "ENOENT" || err.code === "EISDIR")) {
+						if(isStrict) {
+							var errorStatus = new Error(err.message);
+							errorStatus.code = 404;
+							return api.writeError(404, res, err);
+						}
+						var base = path.basename(filePath);
+						if(typeof base === 'string') {
+							filePath = path.join(filePath, 'manifest.yml');
+							return fs.readFile(filePath, "utf8", function(err, fileContent) {
+								if(err && err.code !== 'ENOENT') {
+									var errorStatus = new Error(err.message);
+									errorStatus.code = 404;
+									return reject(errorStatus);
+								}
+								return fulfill(fileContent);
+							});
+						}
+					}
+					fulfill(fileContent);
+				});
 			});
 		},"GET");
 	}).then(function(fileContent){
@@ -139,11 +141,10 @@ var retrieveProjectFilePath = module.exports.retrieveProjectFilePath = function 
 		var fileRoot = (typeof req.contextPath === 'string' ? req.contextPath : "") + "/file";
 		projectPath = projectPath.replace(new RegExp("^" + fileRoot), "");
 	}
-	file = fileUtil.getFile(req, projectPath);
-	if(file && file.path) {
-		return file.path;
-	}
-	return null;
+	return fileUtil.getFileAsync(req, projectPath)
+	.then(function(file) {
+		return file && file.path;
+	})
 };
 
 /**

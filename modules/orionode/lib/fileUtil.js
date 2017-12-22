@@ -138,9 +138,11 @@ var getMetastore = exports.getMetastore = function(req) {
  * @param {string} rest The rets of the path
  * @returns {?} 
  */
-var getFile = exports.getFile = function(req, rest) {
+var getFile = exports.getFile = function(req, rest, callback) {
 	if (!rest) {
-		return null;
+		var error = new Error("Not found");
+		error.code = 404;
+		return callback(error);
 	}
 	var store = getMetastore(req);
 	if (rest[0] === "/") {
@@ -148,12 +150,31 @@ var getFile = exports.getFile = function(req, rest) {
 	}
 	var segments = rest.split("/");
 	var workspaceId = segments.shift();
-	var workspaceDir = store.getWorkspaceDir(workspaceId);
-	return {
-		workspaceId: workspaceId,
-		workspaceDir: workspaceDir,
-		path: safeFilePath(workspaceDir, segments.join("/"))
-	};
+	function done(workspace) {
+		callback(null, {
+			workspaceId: workspace.id,
+			workspaceDir: workspace.location,
+			workspace: workspace,
+			path: safeFilePath(workspace.location, segments.join("/"))
+		});
+	}
+	if (req.workspace) {
+		return done(req.workspace);
+	}
+	store.getWorkspace(workspaceId, function(error, workspace) {
+		if (error) return callback(error);
+		req.workspace = workspace;
+		done(workspace);
+	});
+};
+
+exports.getFileAsync = function(req, rest) {
+	return new Promise(function(fulfill, reject) {
+		getFile(req, rest, function(error, file) {
+			if (error) return reject(error);
+			fulfill(file);
+		});
+	});
 };
 
 /**
@@ -462,8 +483,7 @@ var isFSCaseInsensitive = exports.isFSCaseInsensitive = function isFSCaseInsensi
  * @param {string} fileRoot The file root
  * @param {?} dest The destination file object
  */
-var istheSamePath = exports.istheSamePath = function istheSamePath(req, fileRoot, dest) {
-	var originalFile = getFile(req, req.body.Location.replace(new RegExp("^"+fileRoot), ""));
+var isSamePath = function isSamePath(originalFile, dest) {
 	return path.dirname(originalFile.path).toLowerCase() === path.dirname(dest.path).toLowerCase() && dest.path.toLowerCase() === originalFile.path.toLowerCase();
 };
 function isProjectFile(file) {
@@ -511,42 +531,44 @@ exports.handleFilePOST = function(workspaceRoot, fileRoot, req, res, destFile, m
 				return api.writeError(500, res, new Error(message));
 			}
 		}
-		if (xCreateOptions.indexOf('no-overwrite') !== -1 && destExists) {
-			if(!isMove || !istheSamePath(req, fileRoot, destFile) || !isFSCaseInsensitive(destFile)){
-				return api.writeError(412, res, new Error('A file or folder with the same name already exists at this location.'));
-			}
-		}
 		var project = {};
 		if (isNonWrite) {
-			var sourceFile = getFile(req, api.decodeURIComponent(sourceUrl.replace(new RegExp("^"+fileRoot), "")));
-			return fs.stat(sourceFile.path, function(err, stats) {
-				if(err) {
-					if (err.code === 'ENOENT') {
-						return api.writeError(typeof err.code === 'number' || 404, res, 'File not found:' + sourceUrl);
+			return getFile(req, api.decodeURIComponent(sourceUrl.replace(new RegExp("^"+fileRoot), "")), function(error, sourceFile) {
+				if (error) return api.writeError(error.code || 404, res, err);
+				if (xCreateOptions.indexOf('no-overwrite') !== -1 && destExists) {
+					if(!isMove || !isSamePath(sourceFile, destFile) || !isFSCaseInsensitive(destFile)){
+						return api.writeError(412, res, new Error('A file or folder with the same name already exists at this location.'));
 					}
-					return api.writeError(500, res, err);
 				}
-				if (isCopy) {
-					return copy(sourceFile.path, destFile.path)
-					.then(function() {
+				return fs.stat(sourceFile.path, function(err, stats) {
+					if(err) {
+						if (err.code === 'ENOENT') {
+							return api.writeError(typeof err.code === 'number' || 404, res, 'File not found:' + sourceUrl);
+						}
+						return api.writeError(500, res, err);
+					}
+					if (isCopy) {
+						return copy(sourceFile.path, destFile.path)
+						.then(function() {
+							var eventData = { type: ChangeType.RENAME, isDir: stats.isDirectory(), file: destFile, sourceFile: sourceFile, req: req};
+							exports.fireFileModificationEvent(eventData);
+							return done();
+						});
+					}
+					return fs.rename(sourceFile.path, destFile.path, function(err) {
+						if(err) {
+							var newerr = new Error("Failed to move project: " + sourceUrl);
+							newerr.code = 403;
+							return api.writeError(403, res, newerr);
+						}
+						if (isProjectFile(sourceFile) && stats.isDirectory()) {
+							project.originalPath = sourceFile.path;
+						}
 						var eventData = { type: ChangeType.RENAME, isDir: stats.isDirectory(), file: destFile, sourceFile: sourceFile, req: req};
 						exports.fireFileModificationEvent(eventData);
+						// Rename always returns 200 no matter the file system is realy rename or creating a new file.
 						return done();
 					});
-				}
-				return fs.rename(sourceFile.path, destFile.path, function(err) {
-					if(err) {
-						var newerr = new Error("Failed to move project: " + sourceUrl);
-						newerr.code = 403;
-						return api.writeError(403, res, newerr);
-					}
-					if (isProjectFile(sourceFile) && stats.isDirectory()) {
-						project.originalPath = sourceFile.path;
-					}
-					var eventData = { type: ChangeType.RENAME, isDir: stats.isDirectory(), file: destFile, sourceFile: sourceFile, req: req};
-					exports.fireFileModificationEvent(eventData);
-					// Rename always returns 200 no matter the file system is realy rename or creating a new file.
-					return done();
 				});
 			});
 		}

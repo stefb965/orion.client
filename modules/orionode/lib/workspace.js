@@ -40,12 +40,7 @@ module.exports = function(options) {
 		var workspaceLocation = api.join(workspaceRoot, workspace.id);
 		var parentFileLocation = api.join(fileRoot, workspace.id);
 		var store = fileUtil.getMetastore(req);
-		var workspaceDir;
-		if(typeof workspace.location === 'string'){
-			workspaceDir = workspace.location;
-		} else {
-			workspaceDir = fileUtil.getMetastore(req).getWorkspaceDir(workspace.id);
-		}
+		var workspaceDir = workspace.location;
 		return fileUtil.getChildren(store, parentFileLocation, workspaceLocation, workspaceDir, workspaceDir, 1)
 		.then(function(children) {
 			children.forEach(function(child) {
@@ -167,16 +162,12 @@ module.exports = function(options) {
 				return api.writeError(400, res, null, {Message: "'"+projectName+"' is not a valid name for a project"});
 			}
 			workspaceId = rest;
-			store.getWorkspace(workspaceId, function(err, workspace) {
+			// Create/Move/Rename a project
+			fileUtil.getFile(req, api.join(workspaceId, projectName), function(err, file) {
 				if (err) {
 					return writeError(400, res, err);
 				}
-				if (!workspace) {
-					return writeError(404, res, "Workspace not found: " + rest);
-				}
-				// Create/Move/Rename a project
-				var projectLocation = api.join(fileRoot, workspace.id, projectName);
-				var file = fileUtil.getFile(req, api.join(workspace.id, projectName));
+				var projectLocation = api.join(fileRoot, workspaceId, projectName);
 				return fileUtil.handleFilePOST(workspaceRoot, fileRoot, req, res, file, {
 					Id: projectName,
 					ContentLocation: projectLocation,
@@ -188,23 +179,27 @@ module.exports = function(options) {
 
 	function deleteWorkspace(req, res) {
 		var rest = req.params["0"].substring(1);
-		var file = fileUtil.getFile(req, rest);
-		var store = fileUtil.getMetastore(req);
-		store.deleteWorkspace(file.workspaceId, function(err, isToDeleteWorkspace) {
-			if (err) {
-				return writeError(singleUser ? 403 : 400, res, err);
+		fileUtil.getFile(req, rest, function(error, file) {
+			if (error) {
+				return writeError(singleUser ? 403 : 400, res, error);
 			}
-			if(!isToDeleteWorkspace){
-				fileUtil.rumRuff(file.workspaceDir, function(err) {
-					if (err) {
-						return writeError(400, res, err);
-					}
+			var store = fileUtil.getMetastore(req);
+			store.deleteWorkspace(file.workspaceId, function(err, isToDeleteWorkspace) {
+				if (err) {
+					return writeError(singleUser ? 403 : 400, res, err);
+				}
+				if(!isToDeleteWorkspace){
+					fileUtil.rumRuff(file.workspaceDir, function(err) {
+						if (err) {
+							return writeError(400, res, err);
+						}
+						return writeResponse(204, res);
+					});
+				} else {
+					// In electron case, don't realy remove the directory when deleting a workspace.
 					return writeResponse(204, res);
-				});
-			} else {
-				// In electron case, don't realy remove the directory when deleting a workspace.
-				return writeResponse(204, res);
-			}
+				}
+			});
 		});
 	}
 };

@@ -17,6 +17,7 @@ var express = require('express'),
 	mongoose = require('mongoose'),
 	fileUtil= require('../../fileUtil'),
 	Promise = require('bluebird');
+var api = require('../../api'), writeError = api.writeError;
 
 function userProjectJSON(username) {
 	return {
@@ -133,26 +134,28 @@ module.exports = function(options) {
 	 */
 	app.post('/:project/:user', function(req, res) {
 		//TODO make sure project has been shared first.
-		var project = fileUtil.getFile(req, decodeURIComponent(req.params.project).substring(5 + req.contextPath.length));
-		var user = req.params.user;
-
-		if (!sharedUtil.projectExists(project.path)) {
-			throw new Error("Project does not exist");
-		}
-
-		project = sharedUtil.getProjectRoot(project.path);
-
-		projectsCollection.addUserToProject(user, project)
-		.then(function(doc) {
-			return addProjectToUser(user, project);
-		})
-		.then(function(result) {
-			return res.end();
-		})
-		.catch(function(err){
-			// just need one of these
-			console.log('error:', err);
-			res.end();
+		fileUtil.getFile(req, decodeURIComponent(req.params.project).substring(5 + req.contextPath.length), function(error, project) {
+			if (error) return writeError(error.code || 404, res, error);
+			var user = req.params.user;
+	
+			if (!sharedUtil.projectExists(project.path)) {
+				throw new Error("Project does not exist");
+			}
+	
+			project = sharedUtil.getProjectRoot(project.path);
+	
+			projectsCollection.addUserToProject(user, project)
+			.then(function(doc) {
+				return addProjectToUser(user, project);
+			})
+			.then(function(result) {
+				return res.end();
+			})
+			.catch(function(err){
+				// just need one of these
+				console.log('error:', err);
+				res.end();
+			});
 		});
 	});
 	
@@ -161,16 +164,18 @@ module.exports = function(options) {
 	 * Project might have been deleted or just user removed from shared list.
 	 */
 	app.delete('/:project/:user', function(req, res) {
-		var project = fileUtil.getFile(req, decodeURIComponent(req.params.project).substring(5 + req.contextPath.length));
-		var user = req.params.user;
-		project = sharedUtil.getProjectRoot(project.path);
-
-		projectsCollection.removeUserFromProject(user, project)
-		.then(function() {
-			return removeProjectFromUser(user, project);
-		})
-		.then(function(result) {
-			res.end();
+		fileUtil.getFile(req, decodeURIComponent(req.params.project).substring(5 + req.contextPath.length), function(error, project) {
+			if (error) return writeError(error.code || 404, res, error);
+			var user = req.params.user;
+			project = sharedUtil.getProjectRoot(project.path);
+	
+			projectsCollection.removeUserFromProject(user, project)
+			.then(function() {
+				return removeProjectFromUser(user, project);
+			})
+			.then(function(result) {
+				res.end();
+			});
 		});
 	});
 	

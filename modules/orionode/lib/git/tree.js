@@ -76,14 +76,9 @@ function getTree(req, res) {
 	}
 	
 	if (segmentCount === 2) {
-		var file = fileUtil.getFile(req, req.params["0"]);
-		store.getWorkspace(file.workspaceId, function(err, workspace) {
-			if (err) {
-				return writeError(400, res, err);
-			}
-			if (!workspace) {
-				return writeError(404, res, "Workspace not found");
-			}
+		fileUtil.getFile(req, req.params["0"], function(error, file) {
+			if (error) return writeError(error.code || 404, res, error);
+			var workspace = file.workspace;
 			clone.getClones(req, res, function(repos) {
 				var tree = treeJSON(api.join(fileRoot, workspace.id), workspace.name, 0, true, 0);
 				tree.Id = workspace.id;
@@ -106,10 +101,10 @@ function getTree(req, res) {
 	return clone.getRepo(req)
 	.then(function(repoResult) {
 		repo = repoResult;
-		filePath = clone.getfileRelativePath(repo,req);
-		return repo;
+		return clone.getfileRelativePath(repo,req);
 	})
-	.then(function(repo) {
+	.then(function(_path) {
+		filePath = _path;
 		function shortName(refName) {
 			return refName.replace("refs/remotes/", "").replace("refs/heads/", "").replace("refs/tags/", "");
 		}

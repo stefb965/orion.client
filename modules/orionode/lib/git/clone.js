@@ -137,9 +137,11 @@ function getRepoByPath(filePath, workspaceDir) {
 function getRepo(req) {
 	var u = url.parse(req.url, true);
 	var restpath = u.pathname.split(fileRoot)[1] || "";
-	var file = fileUtil.getFile(req, restpath);
-	req.file = file;
-	return getRepoByPath(file.path, file.workspaceDir);
+	return fileUtil.getFileAsync(req, restpath)
+	.then(function(file) {
+		req.file = file;
+		return getRepoByPath(file.path, file.workspaceDir);
+	});
 }
 
 function freeRepo(repo) {
@@ -171,12 +173,15 @@ function getfileDirPath(repo, req) {
 }
 
 function getfileAbsolutePath(req) {
-	return fileUtil.getFile(req, req.params["0"] || "").path;
+	return fileUtil.getFileAsync(req, req.params["0"] || "").then(function(file) {
+		return file.path;
+	});
 }
 
 function getfileRelativePath(repo, req) {
-	var fileRelativePath = api.toURLPath(getfileAbsolutePath(req).substring(repo.workdir().length));
-	return fileRelativePath;
+	return getfileAbsolutePath(req).then(function(file) {
+		return api.toURLPath(file.substring(repo.workdir().length));
+	});
 }
 
 function getCommit(repo, refOrCommit) {
@@ -216,147 +221,149 @@ function getClones(req, res, callback) {
 	}
 	
 	var rest = req.params["0"].substring(1);
-	var file = fileUtil.getFile(req, rest);
-	var rootDir = file.path;
-	if(rest === file.workspaceId) {
-		// get clones from workspace, then need to check GitSniffDir in git user prefs
-		var store = fileUtil.getMetastore(req);
-		store.getUser(req.user.username, function(err, metadata){
-			var gitUserInfo = prefs.readPrefNode(options, 'git/config', metadata.properties);
-			var gitRepoDirs = gitUserInfo &&  gitUserInfo.userInfo && gitUserInfo.userInfo.GitRepoDir && gitUserInfo.userInfo.GitRepoDir.split(",");
-			if (!gitRepoDirs) {
-				checkDirectory(rootDir, done);
-			} else {
-				var pathsToCheck = gitRepoDirs.map(function(dirName){
-					dirName = dirName.trim();
-					return 	path.join(rootDir,dirName);	
-				});
-				async.each(pathsToCheck, checkDirectory, done);
-			}
-		});
-	} else {
-		checkDirectory(rootDir, done);
-	}
-	
-	function pushRepo(repos, repo, base, location, url, parents, cb) {
-		return Promise.all([url || getURL(repo), getSubmodules(repo, location, parents.slice(0).concat([gitRoot + "/clone" + location]))]).then(function(results) {
-			var json = cloneJSON(base, location, results[0], parents, results[1]);
-			repos.push(json);
-			cb(json);
-		});
-	}
-	
-	function getSubmodules(repo, location, parents) {
-		return new Promise(function(fulfill) {
-			var modules = [];
-			return repo.getSubmoduleNames()
-			.then(function(names) {
-				async.each(names, function(name, callback) {
-					var theSubmodule;
-					git.Submodule.lookup(repo, name)
-					.then(function(submodule) {
-						theSubmodule = submodule;
-						if (!submodule.url()) {
-							freeRepo(theSubmodule);
-							return callback();
-						}
-						var status, subrepo;
-						var sublocation = api.join(location, submodule.path());
-						function done(json, unitialized) {
-							json.SubmoduleStatus = {
-								Type: unitialized || status & git.Submodule.STATUS.WD_UNINITIALIZED || subrepo.isEmpty() ?
-									"UNINITIALIZED" : "INITIALIZED",
-								HeadSHA: submodule.headId() ? submodule.headId().toString() : "",
-								Path: submodule.path()
-							};
-							freeRepo(theSubmodule);
-							callback();
-						}
-						return git.Submodule.status(repo, submodule.name(), -1)
-						.then(function(_status) {
-							status = _status;
-							return submodule.open();
-						})
-						.then(function(_subrepo) {
-							subrepo = _subrepo;
-							return pushRepo(modules, subrepo, name, sublocation, submodule.url(), parents, done);
-						}).catch(function() {
-							var json = cloneJSON(name, sublocation, submodule.url(), parents);
-							modules.push(json);
-							done(json, true || subrepo.isEmpty());
-						})
-						.done(function() {
-							freeRepo(subrepo);
-						});
-					}).catch(function() {
-						freeRepo(theSubmodule);
-						callback();
+	fileUtil.getFile(req, rest, function(error, file) {
+		if (error)  writeError(404, res, error);
+		var rootDir = file.path;
+		if(rest === file.workspaceId) {
+			// get clones from workspace, then need to check GitSniffDir in git user prefs
+			var store = fileUtil.getMetastore(req);
+			store.getUser(req.user.username, function(err, metadata){
+				var gitUserInfo = prefs.readPrefNode(options, 'git/config', metadata.properties);
+				var gitRepoDirs = gitUserInfo &&  gitUserInfo.userInfo && gitUserInfo.userInfo.GitRepoDir && gitUserInfo.userInfo.GitRepoDir.split(",");
+				if (!gitRepoDirs) {
+					checkDirectory(rootDir, done);
+				} else {
+					var pathsToCheck = gitRepoDirs.map(function(dirName){
+						dirName = dirName.trim();
+						return 	path.join(rootDir,dirName);	
 					});
-				}, function() {
-					fulfill(modules);
-				});
+					async.each(pathsToCheck, checkDirectory, done);
+				}
 			});
-		});
-	}
+		} else {
+			checkDirectory(rootDir, done);
+		}
 	
-	function getURL(repo) {
-		return new Promise(function(fulfill) {
-			repo.getRemotes()
-			.then(function(remotes){
-				var url;
-				async.each(remotes, function(remote, callback) {
-					if (remote === "origin") {
-						repo.getRemote(remote)
-						.then(function(remote){
-							url = remote.url();
-							callback();
+		function pushRepo(repos, repo, base, location, url, parents, cb) {
+			return Promise.all([url || getURL(repo), getSubmodules(repo, location, parents.slice(0).concat([gitRoot + "/clone" + location]))]).then(function(results) {
+				var json = cloneJSON(base, location, results[0], parents, results[1]);
+				repos.push(json);
+				cb(json);
+			});
+		}
+		
+		function getSubmodules(repo, location, parents) {
+			return new Promise(function(fulfill) {
+				var modules = [];
+				return repo.getSubmoduleNames()
+				.then(function(names) {
+					async.each(names, function(name, callback) {
+						var theSubmodule;
+						git.Submodule.lookup(repo, name)
+						.then(function(submodule) {
+							theSubmodule = submodule;
+							if (!submodule.url()) {
+								freeRepo(theSubmodule);
+								return callback();
+							}
+							var status, subrepo;
+							var sublocation = api.join(location, submodule.path());
+							function done(json, unitialized) {
+								json.SubmoduleStatus = {
+									Type: unitialized || status & git.Submodule.STATUS.WD_UNINITIALIZED || subrepo.isEmpty() ?
+										"UNINITIALIZED" : "INITIALIZED",
+									HeadSHA: submodule.headId() ? submodule.headId().toString() : "",
+									Path: submodule.path()
+								};
+								freeRepo(theSubmodule);
+								callback();
+							}
+							return git.Submodule.status(repo, submodule.name(), -1)
+							.then(function(_status) {
+								status = _status;
+								return submodule.open();
+							})
+							.then(function(_subrepo) {
+								subrepo = _subrepo;
+								return pushRepo(modules, subrepo, name, sublocation, submodule.url(), parents, done);
+							}).catch(function() {
+								var json = cloneJSON(name, sublocation, submodule.url(), parents);
+								modules.push(json);
+								done(json, true || subrepo.isEmpty());
+							})
+							.done(function() {
+								freeRepo(subrepo);
+							});
 						}).catch(function() {
+							freeRepo(theSubmodule);
 							callback();
 						});
-					} else {
-						callback();
-					}
-				}, function() {
-					return fulfill(url);	
-				});
-			});
-		});
-	}
-
-	function checkDirectory(dir, cb) {
-		// Check if the dir is a directory
-		fs.lstat(dir, function(err, stat) {
-			if (err || !stat.isDirectory()) return cb();
-			if(path.basename(dir) === ".gitted") {
-				 // In nodegit/vender there are a bunch of directories named .gitted, 
-				 // nodegit "open" treat them as git repos, while "discover" doesn't like them. 
-				 // so we skip them anyways.(One potential problem is if a git repo's name is .gitted, it won't show in the git tree)
-				return cb();
-			}
-			var theRepo;
-			git.Repository.open(dir)
-			.then(function(repo) {
-				theRepo = repo;
-				var base = path.basename(dir);
-				var location = getfileDir(repo, file);
-				pushRepo(repos, repo, base, location, null, [], function() {
-					cb();
-					freeRepo(theRepo);
-				});
-	 		})
-			.catch(function() {
-				fs.readdir(dir, function(err, files) {
-					if (err) {
-						return cb();
-					}
-					files = files.map(function(file) {
-						return path.join(dir, file);
+					}, function() {
+						fulfill(modules);
 					});
-					async.each(files, checkDirectory, cb);
 				});
 			});
-		});
-	}
+		}
+		
+		function getURL(repo) {
+			return new Promise(function(fulfill) {
+				repo.getRemotes()
+				.then(function(remotes){
+					var url;
+					async.each(remotes, function(remote, callback) {
+						if (remote === "origin") {
+							repo.getRemote(remote)
+							.then(function(remote){
+								url = remote.url();
+								callback();
+							}).catch(function() {
+								callback();
+							});
+						} else {
+							callback();
+						}
+					}, function() {
+						return fulfill(url);	
+					});
+				});
+			});
+		}
+	
+		function checkDirectory(dir, cb) {
+			// Check if the dir is a directory
+			fs.lstat(dir, function(err, stat) {
+				if (err || !stat.isDirectory()) return cb();
+				if(path.basename(dir) === ".gitted") {
+					 // In nodegit/vender there are a bunch of directories named .gitted, 
+					 // nodegit "open" treat them as git repos, while "discover" doesn't like them. 
+					 // so we skip them anyways.(One potential problem is if a git repo's name is .gitted, it won't show in the git tree)
+					return cb();
+				}
+				var theRepo;
+				git.Repository.open(dir)
+				.then(function(repo) {
+					theRepo = repo;
+					var base = path.basename(dir);
+					var location = getfileDir(repo, file);
+					pushRepo(repos, repo, base, location, null, [], function() {
+						cb();
+						freeRepo(theRepo);
+					});
+		 		})
+				.catch(function() {
+					fs.readdir(dir, function(err, files) {
+						if (err) {
+							return cb();
+						}
+						files = files.map(function(file) {
+							return path.join(dir, file);
+						});
+						async.each(files, checkDirectory, cb);
+					});
+				});
+			});
+		}
+	});
 }
 
 function configRepo(repo, username, email) {
@@ -403,32 +410,33 @@ function getClonePath(req) {
 	if (filePath && filePath.split("/").length < 3) {
 		filePath = undefined;
 	}
-	var file, rest;
+	var rest;
 	var contextPathSegCount = (req.contextPath || "").split("/").length - 1;
 	if (filePath) {
 		rest = filePath.split("/").slice(2 + contextPathSegCount).join("/");
-		file = fileUtil.getFile(req, rest);
+		return fileUtil.getFileAsync(req, rest);
 	} else if (workspacePath) {
 		rest = workspacePath.split("/").slice(2).join("/");
-		file = fileUtil.getFile(req, rest);
-		if (file) {
+		return fileUtil.getFileAsync(req, rest)
+		.then(function(file) {
 			var cloneName = getCloneName(req);
-			if (!cloneName) return null;
+			if (!cloneName) return Promise.reject(new Error("Invalid parameter"));
 			file.path = getUniqueFileName(file.path, cloneName);
-		}
+			return file;
+		});
 	}
-	return file;
 }
 
 function postInit(req, res) {
 	if (req.body.GitUrl) {
 		postClone(req, res);
 	} else {
-		var file = getClonePath(req);
-		if (!file) {
-			return writeError(400, res, "Invalid parameters");
-		}
-		initRepo(file, req, res)
+		var file;
+		getClonePath(req)
+		.then(function(_file) {
+			file = _file;
+			return initRepo(file, req, res);
+		})
 		.then(function() {
 			if (!req.body.Path && req.body.Location) {
 				var store = fileUtil.getMetastore(req);
@@ -440,7 +448,7 @@ function postInit(req, res) {
 		.then(function(){
 			writeResponse(201, res, null, {"Location": gitRoot + "/clone" + fileRoot + "/" + file.workspaceId + api.toURLPath(file.path.substring(file.workspaceDir.length))}, true);
 		}).catch(function(err){
-			writeError(500, res, err);
+			writeError(err.code || 500, res, err);
 		});
 	}
 }
@@ -577,10 +585,12 @@ function putClone(req, res) {
 
 function deleteClone(req, res) {
 	var rest = req.params["0"];
-	var file = fileUtil.getFile(req, rest);
-	fileUtil.deleteFile(req, file, null, function(err) {
-		if (err) return writeError(err.code || 500, res, err);
-		writeResponse(200, res);
+	fileUtil.getFile(req, rest, function(err, file) {
+		if (err) return writeError(err.code || 404, res, err);
+		fileUtil.deleteFile(req, file, null, function(err) {
+			if (err) return writeError(err.code || 500, res, err);
+			writeResponse(200, res);
+		});
 	});
 }
 
@@ -752,20 +762,19 @@ function getUniqueFileName(folder, file) {
 }
 
 function postClone(req, res) {
-	var repo;
+	var repo, file;
 	var cloneUrl = req.body.GitUrl;
-	
-	var file = getClonePath(req);
-	if (!file) {
-		return writeError(400, res, "Invalid parameters");
-	}
 	
 	var credsCopy = Object.assign({}, req.body);
 	var task = new tasks.Task(res, false, true, 0, true);
-	return git.Clone.clone(cloneUrl, file.path, {
-		fetchOpts: {
-			callbacks: getRemoteCallbacks(req.body, req.user.username, task)
-		}
+	getClonePath(req)
+	.then(function(_file) {
+		file = _file;
+		return git.Clone.clone(cloneUrl, file.path, {
+			fetchOpts: {
+				callbacks: getRemoteCallbacks(req.body, req.user.username, task)
+			}
+		});
 	})
 	.then(function(_repo) {
 		repo = _repo;

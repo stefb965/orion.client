@@ -57,24 +57,30 @@ function postSubmodule(req, res) {
 	if (!url) {
 		return writeError(400, res, "Invalid parameters");
 	}
-	var repo, submodule, subrepo, rest;
+	var repo, submodule, subrepo, rest, submodulePath;
 	return clone.getRepo(req)
 	.then(function(_repo) {
 		repo = _repo;
-		var path = req.body.Name;
-		if (!path) {
+		return new Promise(function(fulfill, reject) {
+			var path = req.body.Name;
+			if (path) return fulfill(path);
 			if (req.body.Path) {
 				var contextPathSegCount = req.contextPath.split("/").length - 1;
 				rest = req.body.Path.split("/").slice(2 + contextPathSegCount).join("/");
-				path = fileUtil.getFile(req, rest).path;
+				fileUtil.getFile(req, rest, function(error, file) {
+					if (error) return reject(error);
+					fulfill(file.path.substring(repo.workdir().length))
+				});
 			} else if (req.body.Location) {
-				path = clone.getUniqueFileName(req.file.path, url.substring(url.lastIndexOf("/") + 1).replace(".git", ""));
+				fulfill(clone.getUniqueFileName(req.file.path, url.substring(url.lastIndexOf("/") + 1).replace(".git", "")).substring(repo.workdir().length));
 			}
-			path = path.substring(repo.workdir().length);
-		}
-		return git.Submodule.addSetup(repo, url, path, 1)
+		})
+		.then(function(_path) {
+			submodulePath = _path;
+			return git.Submodule.addSetup(repo, url, submodulePath, 1);
+		})
 		.then(function() {
-			return git.Submodule.lookup(repo, path);
+			return git.Submodule.lookup(repo, submodulePath);
 		})
 		.then(function(_submodule) {
 			submodule = _submodule;
@@ -183,7 +189,9 @@ function deleteSubmodule(req, res) {
 	return clone.getRepo(req)
 	.then(function(_subrepo) {
 		subrepo = _subrepo;
-		var file = fileUtil.getFile(req, req.params["0"].split("/").slice(0, -1).join("/"));
+		return fileUtil.getFileAsync(req, req.params["0"].split("/").slice(0, -1).join("/"));
+	})
+	.then(function(file) {
 		return git.Repository.discover(file.path, 0, file.workspaceDir).then(function(buf) {
 			return git.Repository.open(buf.toString());
 		});
