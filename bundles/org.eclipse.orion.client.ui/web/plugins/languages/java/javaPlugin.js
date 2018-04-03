@@ -14,10 +14,9 @@ define([
 	'orion/plugin',
 	'orion/editor/stylers/text_x-java-source/syntax', 
 	'orion/editor/stylers/application_x-jsp/syntax',
-	'orion/serviceregistry',
 	'plugins/languages/java/ipc',
 	'orion/EventTarget'
-], function(PluginProvider, mJava, mJSP, mServiceRegistry, IPC, EventTarget) {
+], function(PluginProvider, mJava, mJSP, IPC, EventTarget) {
 
 	return {
 		connect: function connect() {
@@ -27,12 +26,12 @@ define([
 				description: "This plugin provides Java tools support for Orion."
 			};
 			var pluginProvider = new PluginProvider(headers);
-			registerServiceProviders(pluginProvider);
+			this.registerServiceProviders(pluginProvider);
 			pluginProvider.connect();
 		},
 		/**
-		 * @callback
-		 */
+		* @callback
+		*/
 		registerServiceProviders: function registerServiceProviders(pluginProvider) {
 			// register the content type
 			pluginProvider.registerServiceProvider("orion.core.contenttype", {}, {
@@ -58,28 +57,29 @@ define([
 			mJSP.grammars.forEach(function(current) {
 				pluginProvider.registerServiceProvider("orion.edit.highlighter", {}, current);
 			});
-			// var ipc = new IPC("/jdt");
-			// function LSPService() {
-			// 	EventTarget.attach(this);
-			// 	ipc.lspService = this;
-			// }
-			// LSPService.prototype = {
-			// 	sendMessage: function(id, message, params) {
-			// 		return ipc.sendMessage(id, message, params);
-			// 	},
-			// 	start: function () {
-			// 		return ipc.connect();
-			// 	}
-			// };
-			// pluginProvider.registerService("orion.languages.server", //$NON-NLS-1$
-			// 	new LSPService(),
-			// 	{
-			// 		languageId: "java",
-			// 		name: "Java Symbol Outline",
-			// 		title: "Java Symbols",
-			// 		contentType: ["text/x-java-source", "application/x-jsp"]  //$NON-NLS-1$ //$NON-NLS-2$
-			// 	}
-			// );
+			
+			var ipc = new IPC("/jdt");
+			function LSPService() {
+				EventTarget.attach(this);
+				ipc.lspService = this;
+			}
+			LSPService.prototype = {
+				sendMessage: function(id, message, params) {
+					return ipc.sendMessage(id, message, params);
+				},
+				start: function () {
+					return ipc.connect();
+				}
+			};
+			pluginProvider.registerService("orion.languages.server", //$NON-NLS-1$
+				new LSPService(),
+				{
+					languageId: "java",
+					name: "Java Symbol Outline",
+					title: "Java Symbols",
+					contentType: ["text/x-java-source", "application/x-jsp"]  //$NON-NLS-1$ //$NON-NLS-2$
+				}
+			);
 		}
 	};
 });

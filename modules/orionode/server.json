@@ -76,5 +76,10 @@
             "ifProp": "orion.collab.enabled",
             "module": "./lib/sharedWorkspace"
         }
+    ],
+    "languages": [
+        {
+            "module": "jdt"
+        }
     ]
 }

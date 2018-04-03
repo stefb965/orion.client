@@ -100,7 +100,7 @@ define([
 			};
 			this.lspService.dispatchEvent(evt);
 		}
-	}
+	};
 
 	/**
 	 * @name IPC.prototype.connect
@@ -109,7 +109,7 @@ define([
 	 */
 	IPC.prototype.connect = function connect() {
 		var d = new Deferred();
-		this.socket = io('/jdt')//.connect(this.channel);
+		this.socket = io(this.channel);
 
 		this.socket.on('connect', function() {
 			this.socket.emit('start');
@@ -165,7 +165,7 @@ define([
 		return d;
 	};
 	
-		/**
+	/**
 	 * @name IPC.prototype.initialize
 	 * @description The initialize request is sent as the first request from the client to the server.
 	 * @param {String} processId The id of the process
@@ -178,6 +178,8 @@ define([
 			rootPath: workspaceDir,
 			processId: processId,
 			capabilities: {
+				workspace: {
+				},
 				textDocument: {
 					completion: {
 						completionItem: {

@@ -196,11 +196,9 @@ function loadLanguageServers(servers, io, options) {
 				const server = require(lsPath);
 				if (server) {
 					lsregistry.installServer(new server(options), { 
-							io: io, 
-							workspaceDir: workspaceDir,
-							IN_PORT: 8123,
-							OUT_PORT: 8124
-						});
+						io: io, 
+						workspaceDir: workspaceDir
+					});
 				} else {
 					logger.log("Tried to install language server '" + lsPath + "' but could not instantiate it");
 				}

@@ -47,7 +47,7 @@ module.exports.installServer = function installServer(impl, options) {
 		socketio.of(impl.route).on('connect', function(socket) {
 			socket.once('start', /* @callback */ function(msg) {
 				impl.onStart(socket, msg, options, function(err) {
-					if(err) {
+					if (err) {
 						return socket.emit('error', err.message);
 					}
 					socket.emit('ready', JSON.stringify({workspaceDir: options.workspaceDir, processId: process.pid}));
@@ -57,7 +57,7 @@ module.exports.installServer = function installServer(impl, options) {
 				impl.onDisconnect(socket);
 			}.bind(impl));
 			socket.on('data', /* @callback */ function(data) {
-                impl.onData(socket, data);
+				impl.onData(socket, data);
 			}.bind(impl));
 			socket.on('error', function(err) {
 				impl.onError(err);

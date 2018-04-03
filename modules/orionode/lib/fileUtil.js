@@ -154,15 +154,11 @@ module.exports.getMetastoreSafe = function getMetastoreSafe(req) {
 
 /**
  * Get the file from the workspace
- * @param {?} req The request
- * @param {string} rest The rets of the path
+ * @param {?} store The workspace store
+ * @param {string} rest The rest of the path
  * @returns {?} 
  */
-var getFile = exports.getFile = function(req, rest) {
-	if (!rest) {
-		return null;
-	}
-	var store = getMetastore(req);
+var getFileFromStore = exports.getFileFromStore = function(store, rest) {
 	if (rest[0] === "/") {
 		rest = rest.substring(1);
 	}
@@ -175,6 +171,21 @@ var getFile = exports.getFile = function(req, rest) {
 		path: safeFilePath(workspaceDir, segments.join("/"))
 	};
 };
+
+/**
+ * Get the file from the workspace
+ * @param {?} req The request
+ * @param {string} rest The rest of the path
+ * @returns {?} 
+ */
+var getFile = exports.getFile = function(req, rest) {
+	if (!rest) {
+		return null;
+	}
+	var store = getMetastore(req);
+	return getFileFromStore(store, rest);
+};
+
 
 /**
  * Collects the parents for thr given file path

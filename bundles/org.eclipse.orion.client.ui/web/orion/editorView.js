@@ -668,15 +668,15 @@ define([
 			editor.addEventListener("InputChanged", function(evt) {
 				syntaxCheck(evt.title, evt.message, evt.contents);
 			});
-			var serviceListener = function(evnt) {
-				var textView = editor.getTextView();
-				if (textView) {
-					var contentAssist = new mContentAssist.ContentAssist(textView, serviceRegistry);
-					setContentAssistProviders(editor, contentAssist, evnt);
-				}
-			};
-			serviceRegistry.addEventListener("registered", serviceListener);
-			serviceRegistry.addEventListener("unregistering", serviceListener);
+//			var serviceListener = function(evnt) {
+//				var textView = editor.getTextView();
+//				if (textView) {
+//					var contentAssist = new mContentAssist.ContentAssist(textView, serviceRegistry);
+//					setContentAssistProviders(editor, contentAssist, evnt);
+//				}
+//			};
+//			serviceRegistry.addEventListener("registered", serviceListener);
+//			serviceRegistry.addEventListener("unregistering", serviceListener);
 			var contextImpl = Object.create(null);
 			[
 				"getCaretOffset", "setCaretOffset", //$NON-NLS-1$ //$NON-NLS-2$

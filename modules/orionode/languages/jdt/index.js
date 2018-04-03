@@ -19,12 +19,15 @@ const path = require('path'),
 
 const CONTENT_LENGTH = 'Content-Length: ',
 	CONTENT_LENGTH_SIZE = CONTENT_LENGTH.length;
+	
+const CLIENT_PORT = 8123;
 
 let remainingData,
+	serverStream,
 	childProcess,
 	java_home,
-    ready = false,
-    DEBUG = true;
+	ready = false,
+	DEBUG = false;
 
 class JDTLanguageServer {
 	constructor(options) {
@@ -45,38 +48,75 @@ class JDTLanguageServer {
 	/**
 	 * @callback From the language server registry
 	 */
-	onStart(socket, msg, options) {
+	onStart(socket, msg, options, callback) {
 		if(!ready) {
-			console.log("ON START: jdt handler");
+			logger.info("ON START: jdt handler");
 			var javaHome = getJavaHome();
 			if (!javaHome) {
 				let err = new Error('JAVA_HOME needs to be set. LSP featrues will be disabled');
 				logger.error(err.message);
+				callback(err);
 			}
+			
+			var serverSocket = net.createServer({}, function(stream) {
+				logger.info('receiveFromServer socket connected');
+				stream.on('data', function(data) {
+					var workspaceUrl = "file:///" + options.workspaceDir.replace(/\\/g, "/");
+					parseMessage(data, workspaceUrl, socket);
+				});
+				stream.on('error', function(err) {
+					logger.info('receiveFromServer stream error: ' + err.toString());
+				});
+				stream.on('end', function() {
+					serverStream = null;
+					logger.info('receiveFromServer disconnected');
+				});
+				serverStream = stream;
+				callback();
+			});
+			serverSocket.listen(CLIENT_PORT, function() {
+				logger.info("Listening to lsp server replies");
+			});
+			serverSocket.on('error', function(err) {
+				logger.info('receiveFromServer error: ' + err.toString());
+			});
+			serverSocket.on('end', function() {
+				logger.info('Disconnected receiveFromServer');
+			});
+
+			var serverClosed = false;
+			var closeServer = function () {
+				if (serverClosed) {
+					return;
+				}
+				serverClosed = true;
+				serverSocket.close();
+			};
 			return runJavaServer(javaHome, options).then(function(child) {
 				childProcess = child;
 				child.on('error', function(err) {
-					//closeServer();
+					closeServer();
 					logger.error('java server process error: ' + err.toString());
 					ready = false;
 				});
 				child.once('exit', function(code, signal) {
-					//closeServer();
-					logger.log("Java child process exited with code: "+code+" along with signal: "+signal);
+					closeServer();
+					logger.info("Java child process exited with code: "+code+" along with signal: "+signal);
 					ready = false;
 				});
 			});
 		}
+		callback();
 	}
 	/**
 	 * @callback From the language server registry
 	 */
 	onData(socket, data) {
-		console.log("ON DATA: jdt handler");
+		logger.info("ON DATA: jdt handler");
 		const textDocument = data.params && data.params.textDocument;
 		if (textDocument && textDocument.uri) {
 			const workspaceUrl = "file:///" + this._options.workspaceDir.replace(/\\/g, "/"),
-					workspaceFile = fileUtil.getFile2(this._options.metastore, textDocument.uri.replace(/^\/file/, ''));
+					workspaceFile = fileUtil.getFileFromStore(this._options.metastore, textDocument.uri.replace(/^\/file/, ''));
 			textDocument.uri = workspaceUrl + workspaceFile.path.slice(workspaceFile.workspaceDir.length);
 			// convert backslashes to slashes only if on Windows
 			if (path.sep === '\\') {
@@ -90,14 +130,14 @@ class JDTLanguageServer {
 				return;
 			}
 		}
-		logger.info('data sent : ' + s);
-		//stream.write("Content-Length: " + s.length + "\r\n\r\n" + s);
+		logger.info('SENT : ' + s);
+		serverStream.write("Content-Length: " + s.length + "\r\n\r\n" + s);
 	}
 	/**
 	 * @callback From the language server registry
 	 */
 	onDisconnect(socket) {
-		console.log("ON DISCONNECT: jdt handler");
+		logger.info("ON DISCONNECT: jdt handler");
 		if(childProcess) {
 			if (childProcess.connected) {
 				childProcess.disconnect();
@@ -111,7 +151,7 @@ class JDTLanguageServer {
 	 * @callback From the language server registry
 	 */
 	onError(socket, err) {
-		console.log("ON ERROR: jdt handler");
+		logger.info("ON ERROR: jdt handler");
 	}
 }
 module.exports = JDTLanguageServer;
@@ -135,79 +175,80 @@ function getJavaHome() {
 	}
 	return java_home;
 }
-// function parseMessage(data, workspaceUrl, sock) {
-// 	try {
-// 		var dataContents = data;
-// 		if (remainingData) {
-// 			dataContents = Buffer.concat([remainingData, dataContents]);
-// 		}
-// 		var offset = 0;
-// 		var headerIndex = -1;
-// 		loop: while ((headerIndex = dataContents.indexOf(CONTENT_LENGTH, offset, 'ascii')) !== -1) {
-// 			// this is an known header
-// 			var headerSizeIndex = dataContents.indexOf('\r\n\r\n', headerIndex + CONTENT_LENGTH_SIZE, 'ascii');
-// 			if (headerSizeIndex !== -1) {
-// 				var messageSize = Number(dataContents.slice(headerIndex + CONTENT_LENGTH_SIZE, headerSizeIndex));
-// 				if (messageSize + headerSizeIndex >= dataContents.length) {
-// 					// not enough data
-// 					offset = headerIndex;
-// 					break loop;
-// 				}
-// 				offset = headerSizeIndex + 4 + messageSize;
-// 				// enough data to get the message contents
-// 				var contents = dataContents.slice(headerSizeIndex + 4, headerSizeIndex + 4 + messageSize);
-// 				var json = null;
-// 				try {
-// 					json = JSON.parse(contents.toString('utf8'));
-// 				} catch(e) {
-// 					logger.error(e);
-// 					logger.error("==================== START CURRENT DATA =============================\n");
-// 					logger.error("contents = " + contents);
-// 					logger.error("messageSize = " + messageSize);
-// 					logger.error("full data contents = " + dataContents);
-// 					logger.error("headerSizeIndex = " + headerSizeIndex);
-// 					logger.error("raw data = " + data);
-// 					logger.error("raw data slice= " + data.slice(headerSizeIndex + 4, headerSizeIndex + 4 + messageSize));
-// 					logger.error("remaining data = " + remainingData);
-// 					logger.error("==================== END CURRENT DATA =============================\n");
-// 				}
-// 				if (json) {
-// 					if (json.params) {
-// 						fixURI(json.params, workspaceUrl);
-// 					}
-// 					if (json.result) {
-// 						fixURI(json.result, workspaceUrl);
-// 					}
-// 				}
-// 				if (json !== null && sock) {
-// 					// detect that the server is ready
-// //					{"method":"language/status","params":{"type":"Started","message":"Ready"},"jsonrpc":"2.0"}
-// 					if (!ready
-// 							&& json.method === "language/status"
-// 							&& json.params
-// 							&& json.params.type === "Started"
-// 							&& json.params.message === "Ready") {
-// 						ready = true;
-// 					}
-// 					logger.info(JSON.stringify(json));
-// 					sock.emit('data', json);
-// 				}
-// 			} else {
-// 				offset = headerIndex;
-// 				break loop;
-// 			}
-// 		}
-// 		if (offset === 0) {
-// 			remainingData = dataContents;
-// 		} else if (offset < dataContents.length) {
-// 			remainingData = dataContents.slice(offset, dataContents.length);
-// 		} else {
-// 			remainingData = null;
-// 		}
-// 	} catch (err) {
-// 		logger.error(err);
-// 	}
-// }
+
+function parseMessage(data, workspaceUrl, sock) {
+	try {
+		var dataContents = data;
+		if (remainingData) {
+			dataContents = Buffer.concat([remainingData, dataContents]);
+		}
+		var offset = 0;
+		var headerIndex = -1;
+		loop: while ((headerIndex = dataContents.indexOf(CONTENT_LENGTH, offset, 'ascii')) !== -1) {
+			// this is an known header
+			var headerSizeIndex = dataContents.indexOf('\r\n\r\n', headerIndex + CONTENT_LENGTH_SIZE, 'ascii');
+			if (headerSizeIndex !== -1) {
+				var messageSize = Number(dataContents.slice(headerIndex + CONTENT_LENGTH_SIZE, headerSizeIndex));
+				if (messageSize + headerSizeIndex >= dataContents.length) {
+					// not enough data
+					offset = headerIndex;
+					break loop;
+				}
+				offset = headerSizeIndex + 4 + messageSize;
+				// enough data to get the message contents
+				var contents = dataContents.slice(headerSizeIndex + 4, headerSizeIndex + 4 + messageSize);
+				var json = null;
+				try {
+					json = JSON.parse(contents.toString('utf8'));
+				} catch(e) {
+					logger.error(e);
+					logger.error("==================== START CURRENT DATA =============================\n");
+					logger.error("contents = " + contents);
+					logger.error("messageSize = " + messageSize);
+					logger.error("full data contents = " + dataContents);
+					logger.error("headerSizeIndex = " + headerSizeIndex);
+					logger.error("raw data = " + data);
+					logger.error("raw data slice= " + data.slice(headerSizeIndex + 4, headerSizeIndex + 4 + messageSize));
+					logger.error("remaining data = " + remainingData);
+					logger.error("==================== END CURRENT DATA =============================\n");
+				}
+				if (json) {
+					if (json.params) {
+						fixURI(json.params, workspaceUrl);
+					}
+					if (json.result) {
+						fixURI(json.result, workspaceUrl);
+					}
+				}
+				if (json !== null && sock) {
+					// detect that the server is ready
+ //					{"method":"language/status","params":{"type":"Started","message":"Ready"},"jsonrpc":"2.0"}
+					if (!ready
+							&& json.method === "language/status"
+							&& json.params
+							&& json.params.type === "Started"
+							&& json.params.message === "Ready") {
+						ready = true;
+					}
+					logger.info("RECEIVED : " + JSON.stringify(json));
+					sock.emit('data', json);
+				}
+			} else {
+				offset = headerIndex;
+				break loop;
+			}
+		}
+		if (offset === 0) {
+			remainingData = dataContents;
+		} else if (offset < dataContents.length) {
+			remainingData = dataContents.slice(offset, dataContents.length);
+		} else {
+			remainingData = null;
+		}
+	} catch (err) {
+		logger.error(err);
+	}
+}
 
 function fixURI(p, workspaceUrl) {
 	if (Array.isArray(p)) {
@@ -217,7 +258,7 @@ function fixURI(p, workspaceUrl) {
 	}
 	if (p.uri) {
 		var s = p.uri.slice(workspaceUrl.length);
-		p.uri = api.join('/file/orionode', s.charAt(0) === '/' ? s.slice(1) : s);
+		p.uri = api.join('/file/anonymous-OrionContent', s.charAt(0) === '/' ? s.slice(1) : s);
 	}
 }
 
@@ -246,24 +287,14 @@ function runJavaServer(javaHome, options) {
 			if (Array.isArray(files) && files.length !== 0) {
 				for (var i = 0, length = files.length; i < length; i++) {
 					var file = files[i];
-					var indexOf = file.indexOf('org.eclipse.equinox.launcher_');
-					if (indexOf !== -1) {
+					if (file.indexOf('org.eclipse.equinox.launcher_') !== -1) {
 						params.push('-jar');
 						params.push(path.resolve(__dirname, './plugins/' + file));
-			
-						//select configuration directory according to OS
-						var configDir = 'config_win';
-						if (process.platform === 'darwin') {
-							configDir = 'config_mac';
-						} else if (process.platform === 'linux') {
-							configDir = 'config_linux';
-						}
-						params.push('-configuration');
-						params.push(path.resolve(__dirname, configDir));
-						params.push('-data');
-						params.push(options.workspaceDir);
+						break;
 					}
 				}
+				params.push('-data');
+				params.push(options.workspaceDir);
 				return fork(child, params, options).then((childProcess) => {
 					resolve(childProcess);
 				}, (err) => {
@@ -282,7 +313,7 @@ function runJavaServer(javaHome, options) {
  */
 function fork(modulePath, args, options) {
 	return new Promise((resolve, reject) => {
-		const newEnv = generatePatchedEnv(process.env, options.IN_PORT, options.OUT_PORT),
+		const newEnv = generatePatchedEnv(process.env),
 		childProcess = cp.spawn(modulePath, args, {
 			silent: true,
 			cwd: options.cwd,
@@ -303,18 +334,16 @@ function fork(modulePath, args, options) {
 	});
 }
 /**
- * Clones the given environment map and adds in the std-in / std-out ports numbers
+ * Clones the given environment map and adds env variables needed to connect to the server.
  * @param {*} env 
  * @param {*} inPort 
  * @param {*} outPort 
  */
-function generatePatchedEnv(env, inPort, outPort) {
-	// Set the two unique pipe names and the electron flag as process env
+function generatePatchedEnv(env) {
 	var newEnv = {};
 	for (var key in env) {
 		newEnv[key] = env[key];
 	}
-	newEnv['STDIN_PORT'] = inPort;
-	newEnv['STDOUT_PORT'] = outPort;
+	newEnv['CLIENT_PORT'] = CLIENT_PORT;
 	return newEnv;
 }
